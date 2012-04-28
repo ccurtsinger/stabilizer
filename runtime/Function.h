@@ -17,8 +17,6 @@
 #include "Global.h"
 #include "Heaps.h"
 
-//#include "list.h"
-
 #include <vector>
 
 using namespace std;
@@ -28,13 +26,10 @@ namespace stabilizer {
 	class Function;
 	class FunctionLocation;
 
-	//typedef list<void*, MD_malloc, MD_free> PointerListType;
 	typedef vector<void*, MDAllocator<void*> > PointerListType;
 
-	//typedef list<Function*, MD_malloc, MD_free> FunctionListType;
 	typedef vector<Function*, MDAllocator<Function*> > FunctionListType;
 
-	//typedef list<FunctionLocation*, MD_malloc, MD_free> FunctionLocationListType;
 	typedef vector<FunctionLocation*, MDAllocator<FunctionLocation*> > FunctionLocationListType;
 
 	struct fn_info {
