@@ -4,7 +4,7 @@ Stabilizer is a compiler transformation and runtime library for dynamic memory l
 A more detailed description of Stabilizer is available in the [Tech Report](https://web.cs.umass.edu/publication/details.php?id=2248).
 
 ### Requirements
-Stabilizer requires [LLVM 2.9](href="http://llvm.org/releases/download.html#2.9). Either front-end for LLVM ([llvm-gcc](http://llvm.org/releases/download.html#2.9) or [clang](http://clang.llvm.org)) will work with Stabilizer. Stabilizer is developed for OSX and Linux on the x86_64 architecture, and has limited support for LLVM's PowerPC backend.
+Stabilizer requires [LLVM 2.9](http://llvm.org/releases/download.html#2.9). Either front-end for LLVM ([llvm-gcc](http://llvm.org/releases/download.html#2.9) or [clang](http://clang.llvm.org)) will work with Stabilizer. Stabilizer is developed for OSX and Linux on the x86_64 architecture, and has limited support for LLVM's PowerPC backend.
 
 ### Building Stabilizer
 Before building Stabilizer, you'll need to check out and build [LLVM 2.9](http://llvm.org/releases/download.html#2.9) and one of the compiler front-ends. The `AutoRegen.sh` script will ask for the source and build directories for LLVM.
