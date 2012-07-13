@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "../Util.h"
+
 /**
  * Round a number up to multiple of another number
  * \param x The number to round
@@ -113,12 +115,22 @@ struct ShuffleHeap<Code, rng, SizeClass, Rest...> {
 	 * \param p A pointer to the base of the allocation
 	 */
 	inline void free(void* p) {
-		size_t sz = getSize(p);
-		if(sz == SizeClass) {
+		intptr_t q = (intptr_t)p;
+		if(q % PageSize == sizeof(HugeHeader) && ((HugeHeader*)(q-sizeof(HugeHeader)))->magic == HugeMagic) {
+			nextSize.free(p);
+		} else if(isLocalSize(p)) {
 			thisSize.free(p);
 		} else {
-			assert(sz == 0 || sz > SizeClass);
 			nextSize.free(p);
+		}
+	}
+
+	inline bool isLocalSize(void* p) {
+		size_t sz = HeapBlock<BlockSize, SizeClass>::lookupSize(p);
+		if(sz != 0 && sz == SizeClass) {
+			return true;
+		} else {
+			return false;
 		}
 	}
 	

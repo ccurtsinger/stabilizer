@@ -26,8 +26,8 @@ uint32_t rng() {
 	return rng.next();
 }
 
-ShuffleHeap<false, rng, 64, 256, 1024, 4096> metadataHeap;
-ShuffleHeap<true, rng, 32, 64, 128, 256, 512, 1024, 2048, 4096> codeHeap;
+HL::ANSIWrapper<ShuffleHeap<false, rng, 32, 64, 128, 256, 512, 1024, 2048, 4096>> metadataHeap;
+HL::ANSIWrapper<ShuffleHeap<true, rng, 32, 64, 128, 256, 512, 1024, 2048, 4096>> codeHeap;
 HL::ANSIWrapper<ShuffleHeap<false, rng, 32, 64, 128, 256, 512, 1024, 2048, 4096>> mainHeap;
 
 void* MD_malloc(size_t sz) {

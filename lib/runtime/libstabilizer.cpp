@@ -6,8 +6,6 @@
 #include "Metadata.h"
 #include "Heaps.h"
 
-#define _XOPEN_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -22,6 +20,7 @@ using namespace stabilizer;
 
 #ifndef __POWERPC__
 #define LAZY_RELOCATION
+#define RERANDOMIZATION
 #endif
 
 namespace stabilizer {
@@ -112,6 +111,11 @@ namespace stabilizer {
 	}
 #endif
 
+	void segv(int sig, siginfo_t *info, void *c) {
+		fprintf(stderr, "SIGSEGV at %p\n", info->si_addr);
+		abort();
+	}
+
 	void rerandomize(int sig, siginfo_t *info, void *c) {
 		FunctionLocationListType new_defunct;
 
@@ -169,7 +173,9 @@ namespace stabilizer {
 }
 
 int main(int argc, char **argv) {
+#ifdef RERANDOMIZATION
 	set_timer(rerand_interval, rerandomize);
+#endif
 
 #ifdef LAZY_RELOCATION
 	struct sigaction sa;
@@ -178,6 +184,11 @@ int main(int argc, char **argv) {
 
 	sigaction(SIGTRAP, &sa, NULL);
 #endif
+
+	struct sigaction sa2;
+	sa2.sa_sigaction = &segv;
+	sa2.sa_flags = SA_SIGINFO;
+	sigaction(SIGSEGV, &sa2, NULL);
 
 	DEBUG("Stabilizer initialized");
 
