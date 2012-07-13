@@ -1,0 +1,3 @@
+[submodule "lib/runtime/diehard"]
+	path = lib/runtime/diehard
+	url = https://github.com/emeryberger/DieHard.git
