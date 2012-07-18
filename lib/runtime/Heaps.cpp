@@ -9,26 +9,26 @@
 #include "Util.h"
 #include "Heaps.h"
 
-#include "shuffleheap/ansiwrapper.h"
-#include "shuffleheap/ShuffleHeap.hpp"
+#include "heaplayers.h"
+#include "combineheap.h"
+#include "diehard.h"
+#include "randomnumbergenerator.h"
+#include "realrandomvalue.h"
+#include "largeheap.h"
+#include "diehardheap.h"
 
-#include "shuffleheap/MWC.hpp"
-#include "shuffleheap/RealRandomValue.hpp"
+#undef throw
+#undef try
 
-#ifndef NDEBUG
-#include <map>
-using namespace std;
-map<void*, bool> heapmap;
-#endif
+enum { Numerator = 8, Denominator = 7 };
+class LargeDataHeap : public OneHeap<LargeHeap<MmapWrapper> > {};
+class LargeCodeHeap : public OneHeap<LargeHeap<MmapWrapper> > {};
+typedef ANSIWrapper<CombineHeap<DieHardHeap<Numerator, Denominator, 65536, true, false>, LargeDataHeap> > DataHeapType;
+typedef ANSIWrapper<CombineHeap<DieHardHeap<Numerator, Denominator, 65536, true, false>, LargeCodeHeap> > CodeHeapType;
 
-uint32_t rng() {
-	static MWC rng(RealRandomValue::value(), RealRandomValue::value());
-	return rng.next();
-}
-
-HL::ANSIWrapper<ShuffleHeap<false, rng, 32, 64, 128, 256, 512, 1024, 2048, 4096>> metadataHeap;
-HL::ANSIWrapper<ShuffleHeap<true, rng, 32, 64, 128, 256, 512, 1024, 2048, 4096>> codeHeap;
-HL::ANSIWrapper<ShuffleHeap<false, rng, 32, 64, 128, 256, 512, 1024, 2048, 4096>> mainHeap;
+DataHeapType metadataHeap;
+DataHeapType mainHeap;
+CodeHeapType codeHeap;
 
 void* MD_malloc(size_t sz) {
 	return metadataHeap.malloc(sz);

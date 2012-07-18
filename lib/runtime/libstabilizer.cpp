@@ -25,7 +25,7 @@ using namespace stabilizer;
 
 namespace stabilizer {
 
-	size_t rerand_interval = 200;
+	size_t rerand_interval = 500;
 
 	typedef struct frame_entry {
 		void *frame;

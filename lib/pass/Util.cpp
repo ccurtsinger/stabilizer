@@ -103,8 +103,7 @@ Function* MakeConstructor(Module &m, StringRef name) {
 	// give the new constructor table the appropriate name, taking it from the current table if one exists
 	if(ctors) {
 		new_ctors->takeName(ctors);
-		// FIXME: May be broken.  Was calling uncheckedReplaceAllUsesWith() before, but API changed
-		ctors->replaceAllUsesWith(new_ctors);
+		ctors->setName("old.llvm.global_ctors");
 		ctors->setLinkage(GlobalVariable::PrivateLinkage);
 	} else {
 		new_ctors->setName("llvm.global_ctors");
@@ -250,7 +249,6 @@ set<Instruction*> Instructify(Value *v) {
 				}
 			}
 		}
-		
 	} else {
 		errs()<<"  Unhandled Value Type\n";
 	}
@@ -278,7 +276,7 @@ void GlobifyFloats(Module &m, Value *v) {
 		}
 		
 		for(vector<Use*>::iterator use_iter = uses.begin(); use_iter != uses.end(); use_iter++) {
-			Use *use = *use_iter;
+			Use* use = *use_iter;
 			User *user = use->getUser();
 				
 			Instruction* i = dyn_cast<Instruction>(user);
@@ -291,7 +289,19 @@ void GlobifyFloats(Module &m, Value *v) {
 				}
 				
 				LoadInst *load = new LoadInst(gv, "", insertion_point);
-				use->set(load);
+				if(phi != NULL) {
+					BasicBlock* b = phi->getIncomingBlock(*use);
+					int index = phi->getBasicBlockIndex(b);
+					phi->removeIncomingValue(b, false);
+					if(phi->getBasicBlockIndex(b) == -1) {
+						phi->addIncoming(load, b);
+					} else {
+						// Something bad has happened.  Need to handle it here
+						phi->addIncoming(load, b);
+					}
+				} else {
+					use->set(load);
+				}
 			}
 		}
 	}
