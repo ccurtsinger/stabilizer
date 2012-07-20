@@ -4,7 +4,7 @@ import os
 import sys
 import argparse
 
-STABILIZER_HOME = '/home/charlie/stabilizer_git/Release+Asserts/lib'
+STABILIZER_HOME = '/Users/charlie/Projects/stabilizer/Release+Asserts/lib'
 
 parser = argparse.ArgumentParser(description="Stabilizer Compiler Driver")
 
@@ -103,9 +103,9 @@ def transform(i, args, verbose=False):
 	if i.endswith('.o') or i.endswith('.opt.bc'):
 		return i
 
-	cmd = 'opt -o='+args.o+'.opt.bc'
+	cmd = '/usr/src/llvm3.1/Release+Asserts/bin/opt -o='+args.o+'.opt.bc'
 
-	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.so'
+	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.dylib'
 
 	for opt in opts:
 		cmd += ' -'+opt

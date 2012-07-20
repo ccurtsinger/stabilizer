@@ -1,21 +1,19 @@
 LEVEL = ../..
 
-#LIBRARYNAME = libstabilizer
-#LOADABLE_MODULE = 1
+LIBRARYNAME = libstabilizer
+LOADABLE_MODULE = 1
 
-LIBRARYNAME = stabilizer
-BUILD_ARCHIVE = 1
+#LIBRARYNAME = stabilizer
+#BUILD_ARCHIVE = 1
 
 include $(LEVEL)/Makefile.common
 
-CPPFLAGS += --std=c++0x -fexceptions \
-	-I. \
-	-I./diehard/src/include \
-	-I./diehard/src/include/layers \
-	-I./diehard/src/include/util \
-	-I./diehard/src/include/rng \
-	-I./diehard/src/include/static \
-	-I./diehard/src/include/math \
-	-I./diehard/src/Heap-Layers \
-	-DNDEBUG
+CPPFLAGS += --std=c++0x -DNDEBUG -I. -fexceptions \
+	-I hl \
+	-I dh/src/include \
+	-I dh/src/include/rng \
+	-I dh/src/include/math \
+	-I dh/src/include/util \
+	-I dh/src/include/layers \
+	-I dh/src/include/static
 

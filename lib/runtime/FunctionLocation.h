@@ -21,6 +21,8 @@ namespace stabilizer {
 		void *base;
 
 	public:
+		size_t defunctCount;
+		
 		FunctionLocation(Function *function);
 
 		FunctionLocation(Function *function, void *base);

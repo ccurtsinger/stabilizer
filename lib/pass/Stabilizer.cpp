@@ -220,11 +220,10 @@ public:
 			if(r != NULL) {
 				users_ptr_uncast = getLocalSlot(0, r, "users_ptr");
 				users_ptr = new BitCastInst(users_ptr_uncast, Type::getInt64PtrTy(m->getContext()), "users_ptr.cast", r);
-				users = new LoadInst(users_ptr, "users", true, r);
-				new StoreInst(users, users_ptr, false, r);
+				users = new LoadInst(users_ptr, "users", false, r);
 
-				//new_users = BinaryOperator::CreateNUWSub(users, Constant::getIntegerValue(Type::getInt64Ty(m->getContext()), APInt(64, 1)), "new_users", r);
-				//new StoreInst(new_users, users_ptr, true, r);
+				new_users = BinaryOperator::CreateNUWSub(users, Constant::getIntegerValue(Type::getInt64Ty(m->getContext()), APInt(64, 1)), "new_users", r);
+				new StoreInst(new_users, users_ptr, false, r);
 			}
 		}
 	}
@@ -798,16 +797,25 @@ struct StabilizerPass : public ModulePass {
 						"randomized_"+i->getName(),
 						&*i
 					);
-
-					i->replaceAllUsesWith(new_local);
-					replaced.push_back(&*i);
+					
+					if(i->getType() == new_local->getType()) {
+						i->replaceAllUsesWith(new_local);
+						replaced.push_back(&*i);
+					} else {
+						errs() << "Type mismatch for local replacement of " << i->getName() << "\n";
+						errs() << "  Replacing ";
+						i->getType()->print(errs());
+						errs() << " with ";
+						new_local->getType()->print(errs());
+						errs() << "\n";
+					}
 				}
 			}
 
 			for(vector<Instruction*>::iterator i_iter = replaced.begin(); i_iter != replaced.end(); i_iter++) {
-				//Instruction *i = *i_iter;
+				Instruction *i = *i_iter;
 				// Why does this break GCC?
-				//i->eraseFromParent();
+				i->eraseFromParent();
 			}
 
 			ReturnInst *r = dyn_cast<ReturnInst>(b->getTerminator());

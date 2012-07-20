@@ -35,7 +35,7 @@ namespace stabilizer {
 	typedef vector<Function*, MDAllocator<Function*> > FunctionListType;
 
 	//typedef list<FunctionLocation*, MD_malloc, MD_free> FunctionLocationListType;
-	typedef vector<FunctionLocation*, MDAllocator<FunctionLocation*> > FunctionLocationListType;
+	//typedef vector<FunctionLocation*, MDAllocator<FunctionLocation*> > FunctionLocationListType;
 
 	struct fn_info {
 		char *name;

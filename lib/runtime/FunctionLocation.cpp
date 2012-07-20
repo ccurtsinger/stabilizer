@@ -16,9 +16,9 @@
 
 namespace stabilizer {
 
-	FunctionLocation::FunctionLocation(Function *f) : function(f), base(f->getBase()) {}
+	FunctionLocation::FunctionLocation(Function *f) : function(f), base(f->getBase()), defunctCount(0) {}
 
-	FunctionLocation::FunctionLocation(Function *f, void *b) : function(f), base(b) {
+	FunctionLocation::FunctionLocation(Function *f, void *b) : function(f), base(b), defunctCount(0) {
 		FunctionLocation *current = function->getCurrentLocation();
 
 		if(current->isOriginal()) {

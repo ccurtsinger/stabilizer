@@ -2,6 +2,7 @@
 
 import os
 import sys
+import random
 import argparse
 
 parser = argparse.ArgumentParser(description="Stabilizer Compiler Driver")
@@ -10,6 +11,7 @@ parser = argparse.ArgumentParser(description="Stabilizer Compiler Driver")
 parser.add_argument('-v', action='store_true')
 parser.add_argument('-fortran', action='store_true')
 parser.add_argument('-gcc', action='store_true')
+parser.add_argument('-linkrand', action='store_true')
 
 # Compiler pass-through arguments
 parser.add_argument('-c', action='store_true')
@@ -111,6 +113,10 @@ def link(inputs, args, verbose=False):
 	
 	for f in args.f:
 		cmd += ' -f'+f
+
+	if args.linkrand:
+		random.shuffle(inputs)
+		print 'Random link order:', ' '.join(inputs)
 
 	cmd += ' '+' '.join(inputs)
 

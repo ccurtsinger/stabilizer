@@ -39,6 +39,7 @@ void InitLibcalls() {
 	inlined.insert("llvm.trap");
 	
 	inlined.insert("llvm.uadd.with.overflow.i64");
+	inlined.insert("llvm.umul.with.overflow.i64");
 	
 	inlined.insert("llvm.eh.exception");
 	inlined.insert("llvm.eh.selector");
