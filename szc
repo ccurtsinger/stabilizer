@@ -34,6 +34,7 @@ parser.add_argument('input', nargs='+')
 
 # Do the parse
 args = parser.parse_args()
+args.v = True
 
 STABILIZER_HOME = args.stabilizer+'/Release+Asserts/lib'
 FORTRAN = args.fortran
@@ -111,7 +112,12 @@ def transform(i, args, verbose=False):
 	if i.endswith('.o') or i.endswith('.opt.bc'):
 		return i
 
-	cmd = '/usr/src/llvm3.1/Release+Asserts/bin/opt -o='+args.o+'.opt.bc'
+	if args.osx:
+		cmd = '/usr/src/llvm3.1/Release+Asserts/bin/opt'
+	else:
+		cmd = 'opt'
+		
+	cmd += ' -o='+args.o+'.opt.bc'
 
 	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.'+LIBSUFFIX
 
