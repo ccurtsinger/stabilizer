@@ -2,13 +2,13 @@
 
 import os
 import sys
+import random
 import argparse
-
-STABILIZER_HOME = '/Users/charlie/Projects/stabilizer/Release+Asserts/lib'
 
 parser = argparse.ArgumentParser(description="Stabilizer Compiler Driver")
 
 # Stabilizer-specific arguments
+parser.add_argument('-stabilizer')
 parser.add_argument('-coderand', action='store_true')
 parser.add_argument('-stackrand', action='store_true')
 parser.add_argument('-heaprand', action='store_true')
@@ -18,6 +18,8 @@ parser.add_argument('-globrand', action='store_true')
 parser.add_argument('-v', action='store_true')
 parser.add_argument('-fortran', action='store_true')
 parser.add_argument('-gcc', action='store_true')
+parser.add_argument('-osx', action='store_true')
+parser.add_argument('-linkrand', action='store_true')
 
 # Compiler pass-through arguments
 parser.add_argument('-c', action='store_true')
@@ -33,7 +35,13 @@ parser.add_argument('input', nargs='+')
 # Do the parse
 args = parser.parse_args()
 
+STABILIZER_HOME = args.stabilizer+'/Release+Asserts/lib'
 FORTRAN = args.fortran
+
+if args.osx:
+	LIBSUFFIX = 'dylib'
+else:
+	LIBSUFFIX = 'so'
 
 opts = []
 
@@ -105,7 +113,7 @@ def transform(i, args, verbose=False):
 
 	cmd = '/usr/src/llvm3.1/Release+Asserts/bin/opt -o='+args.o+'.opt.bc'
 
-	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.dylib'
+	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.'+LIBSUFFIX
 
 	for opt in opts:
 		cmd += ' -'+opt
@@ -138,6 +146,10 @@ def link(inputs, args, verbose=False):
 	for f in args.f:
 		cmd += ' -f'+f
 
+	if args.linkrand:
+		random.shuffle(inputs)
+		print 'Random link order:', ' '.join(inputs)
+	
 	cmd += ' '+' '.join(inputs)
 
 	if verbose:
