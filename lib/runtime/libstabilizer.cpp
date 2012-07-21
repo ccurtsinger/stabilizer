@@ -6,13 +6,19 @@
 #include "Metadata.h"
 #include "Heaps.h"
 
+#include "list.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
 #include <sys/time.h>
 
+#if !defined(_XOPEN_SOURCE)
+// Digging inside of ucontext_t is deprecated unless this macros is defined
 #define _XOPEN_SOURCE
+#endif
+
 #include <ucontext.h>
 
 extern "C" int stabilizer_main(int argc, char **argv);
@@ -45,47 +51,30 @@ namespace stabilizer {
 		void *relocated;
 		size_t size;
 	} global_entry_t;
-
-	GlobalMapType globals;
-	FunctionListType functions;
-	FunctionListType live_functions;
-
-	//FunctionLocationListType defunct_locations;
 	
-	struct FunctionLocationList {
-		FunctionLocation* location;
-		FunctionLocationList* next;
-		
-		FunctionLocationList(FunctionLocationList* head, FunctionLocation* location) {
-			next = head;
-			this->location = location;
-		}
-	};
+	list<Function*> functions;
+	list<Function*> live_functions;
+	list<FunctionLocation*> defunct_locations;
 	
-	FunctionLocationList* defunct_locations = NULL;
-	
-	//typedef list<frame_entry_t*, DH_malloc, DH_free> FrameEntryListType;
-	typedef vector<frame_entry_t*, MDAllocator<frame_entry_t*> > FrameEntryListType;
+	list<frame_entry_t*> live_frames;
 
-	FrameEntryListType live_frames;
-
-	extern "C" void stabilizer_register_global(void *p, size_t sz) {
+	/*extern "C" void stabilizer_register_global(void *p, size_t sz) {
 		DEBUG("Registering global %p\n", p);
 		Global *g = new Global(p, sz);
 
 		globals[p] = g;
-	}
+	}*/
 
 	extern "C" void stabilizer_register_function(struct fn_info *info) {
 		DEBUG("Registering function %s", info->name);
-		Function *f = new Function(info, &globals);
+		Function *f = new Function(info);
 
 #ifdef LAZY_RELOCATION
 		f->placeBreakpoint();
 #else
 		f->relocate();
 #endif
-		functions.push_back(f);
+		functions.add(f);
 	}
 	
 	extern "C" void* stabilizer_relocate_frame(frame_entry_t *entry, size_t sz) {
@@ -96,7 +85,7 @@ namespace stabilizer {
 
 		entry->frame = DH_malloc(sz);
 
-		live_frames.push_back(entry);
+		live_frames.add(entry);
 
 		return entry->frame;
 	}
@@ -124,8 +113,8 @@ namespace stabilizer {
 		struct fn_header *h = (struct fn_header*)GET_CONTEXT_IP(c);
 
 		Function *f = h->obj;
-
-		live_functions.push_back(f);
+		live_functions.add(f);
+		
 		f->restoreHeader();
 		f->relocate();
 	}
@@ -137,73 +126,57 @@ namespace stabilizer {
 	}
 
 	void rerandomize(int sig, siginfo_t *info, void *ctx) {
-		FunctionLocationList* prev = NULL;
-		FunctionLocationList* c = defunct_locations;
-		while(c != NULL) {
-			bool doRemove = false;
-			FunctionLocation* l = c->location;
-			if(c->location->getUsers() == 0) {
-				Code_free(l->getBase());
+		
+		// Loop over all defunct function locations
+		for(auto iter = defunct_locations.begin(); iter != defunct_locations.end(); iter.next()) {
+			FunctionLocation* l = *iter;
+			
+			if(l->getUsers() == 0) {
+				// If all references have disappeared, free it
 				delete l;
-				doRemove = true;
+				iter.remove();
 			} else {
+				// Otherwise, keep track of how long it has been defunct but non-freeable
 				l->defunctCount++;
-				if(l->defunctCount >= WriteoffThreshold && WriteoffThreshold != 0) {
-					doRemove = true;
+				if(WriteoffThreshold != 0 && l->defunctCount >= WriteoffThreshold) {
+					// Give up on freeing this location
+					iter.remove();
 					DEBUG("Writing off FunctionLocation at %p as unrecoverable memory", l->getBase());
 				}
 			}
-			
-			if(doRemove) {
-				if(prev == NULL) {
-					defunct_locations = c->next;
-				} else {
-					prev->next = c->next;
-				}
-				FunctionLocationList* old_c = c;
-				c = c->next;
-				delete old_c;
-			} else {
-				prev = c;
-				c = c->next;
-			}
 		}
 
-		for(FrameEntryListType::iterator entry_iter = live_frames.begin(); entry_iter != live_frames.end(); entry_iter++) {
-			frame_entry_t *entry = *entry_iter;
-
+		// Loop over all live stack frames
+		for(auto iter = live_frames.begin(); iter != live_frames.end(); iter.next()) {
+			frame_entry_t* entry = *iter;
+			// Move the current frame to the old frame
 			entry->old_frame = entry->frame;
+			// Clear the current frame to trigger an allocation on the next call
 			entry->frame = NULL;
+			iter.remove();
 		}
-		live_frames.clear();
 
-		FunctionListType new_live_functions;
-
-		for(FunctionListType::iterator f_iter = live_functions.begin(); f_iter != live_functions.end(); f_iter++) {
-			Function *f = *f_iter;
-
-#ifdef LAZY_RELOCATION
-			if(f->relocatedCount() >= EagerThreshold && EagerThreshold != 0) {
-				defunct_locations = new FunctionLocationList(defunct_locations, f->getCurrentLocation());
-				//defunct_locations.push_back(f->getCurrentLocation());
-
+		// Loop over all live functions
+		for(auto iter = live_functions.begin(); iter != live_functions.end(); iter.next()) {
+			Function* f = *iter;
+			FunctionLocation* l = f->getCurrentLocation();
+			defunct_locations.add(l);
+			
+#if defined(LAZY_RELOCATION)
+			if(EagerThreshold != 0 && f->relocatedCount() >= EagerThreshold) {
+				// This function is frequently used, so relocate it eagerly
 				f->relocate();
-				new_live_functions.push_back(f);
-
 			} else {
-				defunct_locations = new FunctionLocationList(defunct_locations, f->getCurrentLocation());
-				//defunct_locations.push_back(f->getCurrentLocation());
+				// Set the trap so we can relocate the function next time it's called
 				f->placeBreakpoint();
+				
+				// The function is no longer live, so remove it from the list
+				iter.remove();
 			}
 #else
-			defunct_locations.push_back(f->getCurrentLocation());
 			f->relocate();
-			new_live_functions.push_back(f);
 #endif
 		}
-
-		live_functions.clear();
-		live_functions = new_live_functions;
 	
 		set_timer(rerand_interval, rerandomize);
 		rerand_interval = (rerand_interval * 5) / 4;

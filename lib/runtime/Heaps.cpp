@@ -24,55 +24,86 @@
 using namespace std;
 
 enum {
+	CodeShuffle = 8,
 	CodeProt = PROT_READ | PROT_WRITE | PROT_EXEC,
 	CodeFlags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT,
 	CodeSize = 0x200000,
 	
+	DataShuffle = 8,
 	DataProt = PROT_READ | PROT_WRITE,
 	DataFlags = MAP_PRIVATE | MAP_ANONYMOUS,
-	DataSize = 0x200000
+	DataSize = 0x200000,
+	
+	MetadataShuffle = 1,
+	MetadataProt = PROT_READ | PROT_WRITE,
+	MetadataFlags = MAP_PRIVATE | MAP_ANONYMOUS,
+	MetadataSize = 0x200000
 };
 
+#define DIEHARD 1
+#define TLSF 2
+#define DLMALLOC 3
+#define KINGSLEY 4
 
-/////// Shuffled TLSF
+#define CODEHEAP TLSF
+#define DATAHEAP KINGSLEY
+#define MDHEAP 	 TLSF
 
-typedef TLSFLayer<CodeSize, CodeProt, CodeFlags> CodeTLSF;
-typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<8, CodeTLSF>, CodeTLSF > > CodeHeapType;
-
-
-/*
-typedef TLSFLayer<DataSize, DataProt, DataFlags> DataTLSF;
-typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<8, DataTLSF>, DataTLSF > > DataHeapType;
-*/
-
-/////// Shuffled Kingsley
-/*
-class CodeSource : public OneHeap<BumpAlloc<65536, MmapHeap, 64> > {
-public:
-	enum { Alignment = 16 };
-};
-typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<4, SizeHeap<FreelistHeap<CodeSource> > >, SizeHeap<CodeSource> > > CodeHeapType;
-*/
-/*
-class DataSource : public OneHeap<BumpAlloc<65536, MmapHeap, 16> > {
-public:
-	enum { Alignment = 16 };
-};
-typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<8, SizeHeap<FreelistHeap<DataSource> > >, SizeHeap<DataSource> > > DataHeapType;
-*/
-
-/////// DieHard
 enum { Numerator = 10, Denominator = 7 };
 
-/*
-class LargeCodeHeap : public OneHeap<LargeHeap<MmapWrapper> > {};
-typedef ANSIWrapper<CombineHeap<DieHardHeap<Numerator, Denominator, 65536, true, false>, LargeCodeHeap> > CodeHeapType;
-*/
+#if CODEHEAP == DIEHARD
+	class LargeCodeHeap : public OneHeap<LargeHeap<MmapWrapper> > {};
+	typedef ANSIWrapper<CombineHeap<DieHardHeap<Numerator, Denominator, 65536, true, false>, LargeCodeHeap> > CodeHeapType;
+#elif CODEHEAP == TLSF
+	typedef TLSFLayer<CodeSize, CodeProt, CodeFlags> CodeTLSF;
+	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<CodeShuffle, CodeTLSF>, CodeTLSF > > CodeHeapType;
+#elif CODEHEAP == DLMALLOC
+	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<CodeShuffle, LeaMallocHeap>, LeaMallocHeap> > CodeHeapType;
+#else
+	// The alignment MUST be different from the Data and Metadata heaps or they'll share a source
+	class CodeSource : public OneHeap<BumpAlloc<65536, MmapHeap, 64> > {
+	public:
+		enum { Alignment = 16 };
+	};
+	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<CodeShuffle, SizeHeap<FreelistHeap<CodeSource> > >, SizeHeap<CodeSource> > > CodeHeapType;
+#endif
 
 
-class LargeDataHeap : public OneHeap<LargeHeap<MmapWrapper> > {};
-typedef ANSIWrapper<CombineHeap<DieHardHeap<Numerator, Denominator, 65536, true, false>, LargeDataHeap> > DataHeapType;
+#if DATAHEAP == DIEHARD
+	class LargeDataHeap : public OneHeap<LargeHeap<MmapWrapper> > {};
+	typedef ANSIWrapper<CombineHeap<DieHardHeap<Numerator, Denominator, 65536, true, false>, LargeDataHeap> > DataHeapType;
+#elif DATAHEAP == TLSF
+	typedef TLSFLayer<DataSize, DataProt, DataFlags> DataTLSF;
+	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, DataTLSF>, DataTLSF > > DataHeapType;
+#elif DATAHEAP == DLMALLOC
+	//typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, LeaMallocHeap>, LeaMallocHeap> > DataHeapType;
+	typedef ANSIWrapper<LeaMallocHeap> DataHeapType;
+#else
+	// The alignment MUST be different from the Code and Metadata heaps or they'll share a source
+	class DataSource : public OneHeap<BumpAlloc<65536, MmapHeap, 16> > {
+	public:
+		enum { Alignment = 16 };
+	};
+	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, SizeHeap<FreelistHeap<DataSource> > >, SizeHeap<DataSource> > > DataHeapType;
+#endif
 
+#if MDHEAP == DIEHARD
+	class LargeMetadataHeap : public OneHeap<LargeHeap<MmapWrapper> > {};
+	typedef ANSIWrapper<CombineHeap<DieHardHeap<Numerator, Denominator, 65536, true, false>, LargeMetadataHeap> > MetadataHeapType;
+#elif MDHEAP == TLSF
+	typedef TLSFLayer<MetadataSize, MetadataProt, MetadataFlags> MetadataTLSF;
+	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<MetadataShuffle, MetadataTLSF>, MetadataTLSF > > MetadataHeapType;
+#elif MDHEAP == DLMALLOC
+	//typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<MetadataShuffle, LeaMallocHeap>, LeaMallocHeap> > MetadataHeapType;
+	typedef ANSIWrapper<LeaMallocHeap> MetadataHeapType;
+#else
+	// The alignment MUST be different from the Code and Data heaps or they'll share a source
+	class MetadataSource : public OneHeap<BumpAlloc<65536, MmapHeap, 32> > {
+	public:
+		enum { Alignment = 16 };
+	};
+	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<MetadataShuffle, SizeHeap<FreelistHeap<MetadataSource> > >, SizeHeap<MetadataSource> > > MetadataHeapType;
+#endif
 
 inline static CodeHeapType* getCodeHeap() {
 	static char buf[sizeof(CodeHeapType)];
@@ -86,9 +117,9 @@ inline static DataHeapType* getDataHeap() {
 	return _theDataHeap;
 }
 
-inline static DataHeapType* getMetadataHeap() {
-	static char buf[sizeof(DataHeapType)];
-	static DataHeapType* _theMetadataHeap = new (buf) DataHeapType;
+inline static MetadataHeapType* getMetadataHeap() {
+	static char buf[sizeof(MetadataHeapType)];
+	static MetadataHeapType* _theMetadataHeap = new (buf) MetadataHeapType;
 	return _theMetadataHeap;
 }
 
@@ -101,28 +132,23 @@ void MD_free(void *p) {
 }
 
 void* Code_malloc(size_t sz) {
-	DEBUG("Code_malloc");
 	return getCodeHeap()->malloc(sz);
 }
 
 void Code_free(void *p) {
-	DEBUG("Code_free");
 	getCodeHeap()->free(p);
 }
 
 extern "C" {
 	void* DH_malloc(size_t sz) {
-		//fprintf(stderr, "Data: malloc(%lu)\n", sz);
 		return getDataHeap()->malloc(sz);
 	}
 
 	void* DH_calloc(size_t n, size_t sz) {
-		//fprintf(stderr, "Data: calloc(%lu, %lu)\n", n, sz);
 		return getDataHeap()->calloc(n, sz);
 	}
 
 	void* DH_realloc(void *p, size_t sz) {
-		//fprintf(stderr, "Data: realloc(%p, %lu)\n", p, sz);
 		return getDataHeap()->realloc(p, sz);
 	}
 

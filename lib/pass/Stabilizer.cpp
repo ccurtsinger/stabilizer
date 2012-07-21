@@ -150,7 +150,12 @@ public:
 		GlobalValue *gv = dyn_cast<GlobalValue>(use.get());
 		Instruction *insertion_point = dyn_cast<Instruction>(use.getUser());
 		
-		if(gv != NULL && /*gv != base &&*/ insertion_point != NULL) {
+		// Recursive calls can be skipped
+		/*if(gv == base && isa<CallInst>(use.getUser())) {
+			return;
+		}*/
+		
+		if(gv != NULL && insertion_point != NULL) {
 			PHINode* phi;
 			if((phi = dyn_cast<PHINode>(insertion_point)) != NULL) {
 				BasicBlock *incoming = phi->getIncomingBlock(use);
@@ -168,8 +173,17 @@ public:
 			
 			// Cast the local pointer to the appropriate type
 			Value *local = BitCastInst::CreatePointerCast(load, gv->getType(), gv->getName(), insertion_point); 
-
-			use.set(local);
+			
+			if(isa<PHINode>(use.getUser())) {
+				PHINode* phi = dyn_cast<PHINode>(use.getUser());
+				BasicBlock* incoming = phi->getIncomingBlock(use);
+				while(phi->getBasicBlockIndex(incoming) != -1) {
+					phi->removeIncomingValue(incoming, false);
+				}
+				phi->addIncoming(local, incoming);
+			} else {
+				use.set(local);
+			}
 		}
 	}
 	

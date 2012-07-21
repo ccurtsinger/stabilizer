@@ -34,7 +34,6 @@ parser.add_argument('input', nargs='+')
 
 # Do the parse
 args = parser.parse_args()
-args.v = True
 
 STABILIZER_HOME = args.stabilizer+'/Release+Asserts/lib'
 FORTRAN = args.fortran
@@ -46,16 +45,16 @@ else:
 
 opts = []
 
-args.L.append(STABILIZER_HOME)
-args.l.append('stabilizer')
+opts.append('lower-intrinsics')
+opts.append('lowerswitch')
+
 args.l.append('stdc++')
+args.f.append('PIC')
 
-if args.coderand:
-	opts.append('lower-intrinsics')
-	opts.append('lowerswitch')
-	args.f.append('PIC')
-
-opts.append('stabilize')
+if args.coderand or args.stackrand or args.heaprand or args.globrand:
+	args.L.append(STABILIZER_HOME)
+	args.l.append('stabilizer')
+	opts.append('stabilize')
 
 if args.coderand:
 	opts.append('stabilize-code')
