@@ -36,6 +36,11 @@ struct TLSFLayer {
 	
 	static void* map() {
 		void* p = mmap(NULL, MapSize, Prot, Flags, -1, 0);
+
+		/*if((Flags & MAP_32BIT) && p == MAP_FAILED) {
+			p = mmap(NULL, MapSize, Prot, Flags & ~MAP_32BIT, -1, 0);
+		}*/
+
 		if(p == MAP_FAILED) {
 			fprintf(stderr, "Out of memory!\n");
 			abort();

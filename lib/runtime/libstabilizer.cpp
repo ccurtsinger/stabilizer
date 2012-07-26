@@ -8,6 +8,7 @@
 
 #include "list.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -37,9 +38,15 @@ enum { WriteoffThreshold = 10 };
 // If a function has been trapped and relocated this many times, relocated eagerly
 enum { EagerThreshold = 0 };
 
+// Increase the rerandomization interval by (TargetRerand+1)/TargetRerand
+// After a warmup period, no single period of rerandomization will make up
+// more than 1/TargetRerand of total time
+enum { TargetRerand = 15 };
+enum { StartingInterval = 250 };
+
 namespace stabilizer {
 
-	size_t rerand_interval = 100;
+	size_t rerand_interval = StartingInterval;
 
 	typedef struct frame_entry {
 		void *frame;
@@ -177,9 +184,9 @@ namespace stabilizer {
 			f->relocate();
 #endif
 		}
-	
+
+		rerand_interval = (rerand_interval * (TargetRerand+1)) / TargetRerand;	
 		set_timer(rerand_interval, rerandomize);
-		rerand_interval = (rerand_interval * 5) / 4;
 	}
 }
 
@@ -210,5 +217,9 @@ int main(int argc, char **argv) {
 
 extern "C" void reportDoubleFreeError() {
 	abort();
+}
+
+extern "C" float powif(float b, int e) {
+	return powf(b, (float)e);
 }
 

@@ -58,6 +58,10 @@ namespace stabilizer {
 		size_t relocatedCount() {
 			return relocated_count;
 		}
+
+		void resetRelocatedCount() {
+			relocated_count = 0;
+		}
 	
 		void placeBreakpoint() {
 			struct fn_header *h = (struct fn_header*)base;
