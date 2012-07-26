@@ -50,6 +50,7 @@ opts.append('lowerswitch')
 
 args.l.append('stdc++')
 args.f.append('PIC')
+args.v = True
 
 if args.coderand or args.stackrand or args.heaprand or args.globrand:
 	args.L.append(STABILIZER_HOME)
@@ -82,7 +83,7 @@ def compile(i, args, verbose=False):
 		cmd = 'clang -c -emit-llvm'
 		cmd += ' -o '+args.o+'.bc'
 
-	cmd += ' -O'+str(args.O)
+	cmd += ' -O0'
 
 	for I in args.I:
 		cmd += ' -I'+I
@@ -118,6 +119,8 @@ def transform(i, args, verbose=False):
 		
 	cmd += ' -o='+args.o+'.opt.bc'
 
+	cmd += ' -O'+str(args.O)
+
 	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.'+LIBSUFFIX
 
 	for opt in opts:
@@ -133,9 +136,9 @@ def transform(i, args, verbose=False):
 
 def link(inputs, args, verbose=False):
 	if FORTRAN and not args.c:
-		cmd = 'gfortran'
+		cmd = 'gfortran -O0'
 	else:
-		cmd = 'clang'
+		cmd = 'clang -O0'
 
 	if args.c:
 		cmd += ' -c'
