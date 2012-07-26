@@ -5,4 +5,14 @@ USEDLIBS =
 
 include $(LEVEL)/Makefile.common
 
-CPPFLAGS += -DNDEBUG -I. -I./diehard -I./diehard/diehard -D_REENTRANT=0 -DHL_EXECUTABLE_HEAP -DHL_32BIT_HEAP -msse3
+CXX = clang++
+
+CFLAGS += -DUSE_DL_PREFIX -DNDEBUG
+CXXFLAGS += --std=c++0x -DNDEBUG -I. -fexceptions -Wno-pedantic \
+	-I hl \
+	-I dh/src/include \
+	-I dh/src/include/rng \
+	-I dh/src/include/math \
+	-I dh/src/include/util \
+	-I dh/src/include/layers \
+	-I dh/src/include/static

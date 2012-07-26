@@ -13,19 +13,20 @@
 #include "Heaps.h"
 
 #include <sys/mman.h>
+#include <stdio.h>
 
 using namespace std;
 
+#define ALIGN 128
+
 namespace stabilizer {
 
-	Function::Function(struct fn_info *info, GlobalMapType *globals) : name(info->name), base(info->base), limit(info->limit) {
+	Function::Function(struct fn_info *info) : name(info->name), base(info->base), limit(info->limit) {
 		void **p = info->refs;
 		while(*p != NULL) {
-			refs.push_back(*p);
+			refs.append(*p);
 			p++;
 		}
-
-		this->globals = globals;
 
 		mprotect(ALIGN_DOWN(getBase(), PAGESIZE), 2*PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC);
 
@@ -37,11 +38,20 @@ namespace stabilizer {
 		relocated_count++;
 
 		DEBUG("Relocating %s", getName());
-		void *new_base = Code_malloc(getTotalSize());
+		void *new_base = Code_malloc(getTotalSize()+ALIGN);
+		intptr_t base_p = (intptr_t)new_base;
+		
+		void *aligned_base = new_base;
+		
+		if((base_p & (ALIGN-1)) != 0) {
+			aligned_base = (void*)(base_p + ALIGN - (base_p & (ALIGN-1)));
+		}
 	
-		FunctionLocation *new_l = new FunctionLocation(this, new_base);
+		//fprintf(stderr, "Function allocated at %p, placed at %p\n", new_base, aligned_base);
 	
-		new(getBase()) Jump(new_base);
+		FunctionLocation *new_l = new FunctionLocation(this, aligned_base, new_base);
+	
+		new(getBase()) Jump(aligned_base);
 	
 		if(!current_location->isOriginal()) {
 			current_location->decrementUsers();

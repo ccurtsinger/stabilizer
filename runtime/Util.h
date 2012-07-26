@@ -21,12 +21,12 @@
 #define MAP_32BIT 0
 #endif
 
-#ifdef __APPLE__
+#if defined(__APPLE__)
 
 	#define GET_CONTEXT_IP(x) (((ucontext_t*)x)->uc_mcontext->__ss.__rip)
 	#define SET_CONTEXT_IP(x, y) ((((ucontext_t*)x)->uc_mcontext->__ss.__rip) = (y))
 
-#elif linux
+#elif defined(__linux__)
 
 	#define GET_CONTEXT_IP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP])
 	#define SET_CONTEXT_IP(x, y) ((((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP]) = (y))

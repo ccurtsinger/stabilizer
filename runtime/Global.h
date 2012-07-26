@@ -14,9 +14,10 @@
 
 #include "Metadata.h"
 #include "Heaps.h"
+//#include "map.h"
 
 #include <map>
-#include <pair>
+#include <utility>
 
 using namespace std;
 
@@ -24,6 +25,7 @@ namespace stabilizer {
 
 	class Global;
 
+	//typedef map<void*, Global*, DH_malloc, DH_free> GlobalMapType;
 	typedef map<void*, Global*> GlobalMapType;
 
 	class Global : public Metadata {

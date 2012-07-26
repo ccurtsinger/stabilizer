@@ -53,7 +53,7 @@ public:
 		return &value;
 	}
 	
-	MDAllocator() throw() {}
+	const MDAllocator() throw() {}
 	
 	MDAllocator(const MDAllocator&) throw() {}
 	

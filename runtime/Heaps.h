@@ -22,7 +22,6 @@ extern "C" {
 	void* DH_calloc(size_t n, size_t sz);
 	void* DH_realloc(void *ptr, size_t sz);
 	void  DH_free(void *p);
-	void  DH_flush();
 }
 
 #endif

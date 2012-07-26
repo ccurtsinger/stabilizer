@@ -4,8 +4,8 @@ dnl **************************************************************************
 AC_INIT([[[SAMPLE]]],[[[x.xx]]],[bugs@yourdomain])
 
 dnl Identify where LLVM source tree is
-LLVM_SRC_ROOT="/home/charlie/prefix/src/llvm"
-LLVM_OBJ_ROOT="/home/charlie/prefix/src/llvm"
+LLVM_SRC_ROOT="/usr/src/llvm2.9"
+LLVM_OBJ_ROOT="/usr/src/llvm2.9"
 
 dnl Tell autoconf that this is an LLVM project being configured
 dnl This provides the --with-llvmsrc and --with-llvmobj options

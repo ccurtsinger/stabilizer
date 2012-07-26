@@ -16,9 +16,9 @@
 
 namespace stabilizer {
 
-	FunctionLocation::FunctionLocation(Function *f) : function(f), base(f->getBase()) {}
+	FunctionLocation::FunctionLocation(Function *f) : function(f), base(f->getBase()), defunctCount(0) {}
 
-	FunctionLocation::FunctionLocation(Function *f, void *b) : function(f), base(b) {
+	FunctionLocation::FunctionLocation(Function *f, void* b, void* alloc_b) : function(f), base(b), allocated_base(alloc_b), defunctCount(0) {
 		FunctionLocation *current = function->getCurrentLocation();
 
 		if(current->isOriginal()) {
@@ -33,17 +33,11 @@ namespace stabilizer {
 			*((FunctionLocation**)table) = this;
 			table++;
 
-			GlobalMapType g = f->getGlobals();
-			for(PointerListType::iterator r = function->refs_begin(); r != function->refs_end(); r++) {
-				void *p = *r;
-
-				if(g.find(p) != g.end()) {
-					p = g[p]->getRelocatedBase();
-				}
-
+			for(void* p: function->getRefs()) {
 				*table = p;
 				table++;
 			}
+			
 		} else {
 			memcpy(base, current->getBase(), function->getTotalSize());
 			void **table = (void**)((intptr_t)base + function->getCodeSize());

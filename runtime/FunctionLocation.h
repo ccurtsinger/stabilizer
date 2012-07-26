@@ -10,6 +10,7 @@
 #define stabilizer2_FunctionLocation_h
 
 #include "Metadata.h"
+#include "Heaps.h"
 
 namespace stabilizer {
 
@@ -17,13 +18,20 @@ namespace stabilizer {
 	
 	class FunctionLocation : public Metadata {
 	private:
-		Function *function;
-		void *base;
+		Function* function;
+		void* base;
+		void* allocated_base;
 
 	public:
-		FunctionLocation(Function *function);
-
-		FunctionLocation(Function *function, void *base);
+		size_t defunctCount;
+		
+		FunctionLocation(Function* function);
+		FunctionLocation(Function* function, void* base, void* allocated_base);
+		~FunctionLocation() {
+			if(!isOriginal()) {
+				Code_free(getAllocatedBase());
+			}
+		}
 
 		Function* getFunction() {
 			return function;
@@ -31,6 +39,10 @@ namespace stabilizer {
 
 		void* getBase() {
 			return base;
+		}
+		
+		void* getAllocatedBase() {
+			return allocated_base;
 		}
 
 		void decrementUsers();

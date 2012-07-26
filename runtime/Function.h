@@ -17,7 +17,7 @@
 #include "Global.h"
 #include "Heaps.h"
 
-#include <vector>
+#include "list.h"
 
 using namespace std;
 
@@ -25,12 +25,6 @@ namespace stabilizer {
 
 	class Function;
 	class FunctionLocation;
-
-	typedef vector<void*, MDAllocator<void*> > PointerListType;
-
-	typedef vector<Function*, MDAllocator<Function*> > FunctionListType;
-
-	typedef vector<FunctionLocation*, MDAllocator<FunctionLocation*> > FunctionLocationListType;
 
 	struct fn_info {
 		char *name;
@@ -41,6 +35,7 @@ namespace stabilizer {
 
 	struct fn_header {
 		uint8_t breakpoint;
+		uint8_t pad[63];
 		Function *obj;
 	};
 
@@ -53,18 +48,19 @@ namespace stabilizer {
 
 		struct fn_header header;
 
-		GlobalMapType *globals;
-	
-		PointerListType refs;
-
+		list<void*> refs;
 		FunctionLocation *current_location;
 
 	public:
-		Function(struct fn_info *info, GlobalMapType *globals);
+		Function(struct fn_info *info);
 		FunctionLocation* relocate();
 	
 		size_t relocatedCount() {
 			return relocated_count;
+		}
+
+		void resetRelocatedCount() {
+			relocated_count = 0;
 		}
 	
 		void placeBreakpoint() {
@@ -88,10 +84,6 @@ namespace stabilizer {
 			return base;
 		}
 
-		inline GlobalMapType getGlobals() {
-			return *globals;
-		}
-
 		inline size_t getCodeSize() {
 			return (size_t)((uintptr_t)limit - (uintptr_t)base);
 		}
@@ -107,13 +99,9 @@ namespace stabilizer {
 		inline FunctionLocation* getCurrentLocation() {
 			return current_location;
 		}
-
-		inline PointerListType::iterator refs_begin() {
-			return refs.begin();
-		}
-
-		inline PointerListType::iterator refs_end() {
-			return refs.end();
+		
+		inline list<void*> getRefs() {
+			return refs;
 		}
 	};
 }

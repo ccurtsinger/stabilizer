@@ -1,0 +1,6 @@
+[submodule "runtime/dh"]
+	path = runtime/dh
+	url = git://github.com/emeryberger/DieHard.git
+[submodule "runtime/hl"]
+	path = runtime/hl
+	url = git://github.com/emeryberger/Heap-Layers.git
