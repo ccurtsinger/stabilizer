@@ -20,8 +20,6 @@ set<StringRef> inlined;
 
 void InitLibcalls() {
 	inlined.insert("llvm.va_start");
-	
-	inlined.insert("llvm.va_start");
 	inlined.insert("llvm.va_copy");
 	inlined.insert("llvm.va_end");
 

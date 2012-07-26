@@ -36,7 +36,7 @@
 #define ALIGN_DOWN(x, y) (void*)((uintptr_t)(x) - ((uintptr_t)(x) % (y)))
 #define ALIGN_UP(x, y) ALIGN_DOWN(((uintptr_t)x + y - 1), y)
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(SOCLIB)
 #include <stdio.h>
 #include <assert.h>
 #define DEBUG(...) fprintf(stderr, "  "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n")

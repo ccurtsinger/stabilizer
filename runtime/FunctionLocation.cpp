@@ -9,6 +9,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#if defined(__POWERPC__)
+#include <asm/cachectl.h>
+#endif
+
 #include "Global.h"
 #include "Function.h"
 #include "FunctionLocation.h"
@@ -24,6 +28,10 @@ namespace stabilizer {
 		if(current->isOriginal()) {
 			void **table = (void**)((intptr_t)base + function->getCodeSize());
 			memcpy(base, current->getBase(), function->getCodeSize());
+			
+#if defined(__POWERPC__)
+			cacheflush(base, function->getCodeSize(), BCACHE);
+#endif
 
 			// Set the users counter to zero
 			*((size_t*)table) = 1;

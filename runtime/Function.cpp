@@ -15,6 +15,10 @@
 #include <sys/mman.h>
 #include <stdio.h>
 
+#if defined(__POWERPC__)
+#include <asm/cachectl.h>
+#endif
+
 using namespace std;
 
 #define ALIGN 128
@@ -52,6 +56,10 @@ namespace stabilizer {
 		FunctionLocation *new_l = new FunctionLocation(this, aligned_base, new_base);
 	
 		new(getBase()) Jump(aligned_base);
+		
+#if defined(__POWERPC__)
+		cacheflush(getBase(), sizeof(Jump), BCACHE);
+#endif
 	
 		if(!current_location->isOriginal()) {
 			current_location->decrementUsers();
