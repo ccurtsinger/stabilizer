@@ -11,6 +11,7 @@ to_run = []
 dont_run = []
 configs = ['code', 'code.stack', 'code.heap.stack', 'link']
 tune = 'base'
+size = 'default'
 run_configs = []
 
 for arg in sys.argv[1:]:
@@ -20,8 +21,10 @@ for arg in sys.argv[1:]:
 		dont_run.append(arg[1:])
 	elif arg in configs:
 		run_configs.append(arg)
-	elif arg == 'peak':
-		tune = 'peak'
+	elif arg in ['base', 'peak']:
+		tune = arg
+	elif arg in ['default', 'test', 'train', 'ref']:
+		size = arg
 	else:
 		iterations = int(arg)
 
@@ -44,21 +47,24 @@ def runspec(bench, size, tune, ext, n, rebuild=True):
 	os.system(cmd)
 
 for bmk in to_run:
-	if bmk in train_benchmarks:
-		size = 'train'
+	if size == 'default':
+		if bmk in train_benchmarks:
+			this_size = 'train'
+		else:
+			this_size = 'test'
 	else:
-		size = 'test'
+		this_size = size
 
 	if 'code' in run_configs:
-		runspec(bmk, size, tune, 'code', iterations)
+		runspec(bmk, this_size, tune, 'code', iterations)
 	
 	if 'code.stack' in run_configs:
-		runspec(bmk, size, tune, 'code.stack', iterations)
+		runspec(bmk, this_size, tune, 'code.stack', iterations)
 	
 	if 'code.heap.stack' in run_configs:
-		runspec(bmk, size, tune, 'code.heap.stack', iterations)
+		runspec(bmk, this_size, tune, 'code.heap.stack', iterations)
 
 	if 'link' in run_configs:
 		for i in range(0, iterations):
-			runspec(bmk, size, tune, 'link', 1, rebuild=True)
+			runspec(bmk, this_size, tune, 'link', 1, rebuild=True)
 

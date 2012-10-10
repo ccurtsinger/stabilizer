@@ -1,0 +1,181 @@
+#!/usr/bin/env python
+
+import sys
+import argparse
+from numpy import mean, median, std, histogram
+from scipy.stats import shapiro, anderson
+
+parser = argparse.ArgumentParser(description='SPEC CPU2006 Output File Processor')
+parser.add_argument('-norm', action='store_true')
+parser.add_argument('-range', action='store_true')
+parser.add_argument('-len', action='store_true')
+parser.add_argument('-r', action='store_true')
+parser.add_argument('-trim', action='store_true')
+parser.add_argument('-all', action='store_true')
+parser.add_argument('files', nargs='+')
+
+args = parser.parse_args()
+
+results = []
+
+for filename in args.files:
+	f = open(filename, 'r')
+	
+	bits = {}
+	
+	for line in f:
+		if line.startswith('spec.cpu2006.results'):
+			(s, c, r, bmk, tune, n, key_value) = line.split('.', 6)
+			(key, value) = key_value.split(':', 1)
+
+			(ignore, bmk) = bmk.split('_')
+		
+			if bmk not in bits:
+				bits[bmk] = {}
+			
+			if n not in bits[bmk]:
+				bits[bmk][n] = {}
+			
+			bits[bmk][n]['tune'] = tune
+			bits[bmk][n][key.strip()] = value.strip()
+	
+	for bmk in bits:
+		for n in bits[bmk]:
+			results.append(bits[bmk][n])
+
+def where(results, key, *values):
+	return filter(lambda r: r[key] in values, results)
+
+def distinct(results, key):
+	values = []
+	for r in results:
+		if r[key] not in values:
+			values.append(r[key])
+	return values
+
+def keymap(results, key, f):
+	next_results = []
+	for r in results:
+		next_r = dict(r)
+		next_r[key] = f(r[key])
+		next_results.append(next_r)
+	return next_results
+
+def get(results, *keys):
+	next_results = []
+	for r in results:
+		next_r = {}
+		for k in r:
+			if k in keys:
+				next_r[k] = r[k]
+		next_results.append(next_r)
+	return next_results
+
+def group(results, *keys):
+	if len(keys) == 0:
+		return results
+	
+	key = keys[0]
+	grouped = {}
+	for r in results:
+		if r[key] not in grouped:
+			grouped[r[key]] = []
+		
+		new_r = dict(r)
+		del new_r[key]
+		
+		if len(new_r) == 1:
+			new_r = new_r.values()[0]
+		
+		grouped[r[key]].append(new_r)
+	
+	for g in grouped:
+		grouped[g] = group(grouped[g], *keys[1:])
+	return grouped
+
+results = where(results, 'valid', 'S')
+results = get(results, 'benchmark', 'tune', 'reported_time', 'ext')
+
+results = keymap(results, 'benchmark', lambda b: b.split('.')[1])
+results = keymap(results, 'reported_time', float)
+
+exts = distinct(results, 'ext')
+tunes = distinct(results, 'tune')
+benchmarks = distinct(results, 'benchmark')
+
+results = group(results, 'benchmark', 'tune', 'ext')
+
+if args.trim:
+	for benchmark in results:
+		for tune in results[benchmark]:
+			for ext in results[benchmark][tune]:
+				values = results[benchmark][tune][ext]
+				hi = max(values)
+				lo = min(values)
+				del values[values.index(hi)]
+				del values[values.index(lo)]
+				results[benchmark][tune][ext] = values
+
+if args.r:
+	for benchmark in results:
+		sets = []
+		for tune in results[benchmark]:
+			for ext in results[benchmark][tune]:
+				name = benchmark+'_'+tune+'_'+ext.replace('.', '_')
+				values = results[benchmark][tune][ext]
+				print name+' = c('+', '.join(map(str, values))+')'
+				sets.append('"'+ext.replace('.', '_')+'"='+name)
+		print benchmark+' <- list(' + ', '.join(sets) + ')'
+		
+elif args.all:
+	benchmarks.sort()
+	tunes.sort()
+	exts.sort()
+	
+	for tune in tunes:
+		for benchmark in benchmarks:
+			for ext in exts:
+				if tune in results[benchmark] and ext in results[benchmark][tune]:
+					row = [benchmark+'_'+ext+'_'+tune]
+					row += results[benchmark][tune][ext]
+					print ', '.join(map(str, row))
+	
+else:
+	benchmarks.sort()
+	tunes.sort()
+	exts.sort()
+	
+	headings = ['Benchmark']
+	for ext in exts:
+		for tune in tunes:
+			headings.append(ext+'_'+tune)
+	
+	print ', '.join(headings)
+	
+	for benchmark in benchmarks:
+		print benchmark+',',
+	
+		values = []
+		for ext in exts:
+			for tune in tunes:
+				if tune not in results[benchmark] or ext not in results[benchmark][tune]:
+					values.append('')
+				elif args.norm:
+					if len(results[benchmark][tune][ext]) < 3:
+						values.append('')
+					else:
+						(k2, p) = shapiro(results[benchmark][tune][ext])
+						values.append(p > 0.05)
+						#(A2, critical, sig) = anderson(results[benchmark][ext])
+						#values.append(A2 <= critical[1])
+				elif args.range:
+					avg = mean(results[benchmark][tune][ext])
+					up = max(results[benchmark][tune][ext]) - avg
+					down = avg - min(results[benchmark][tune][ext])
+					values.append(max(up / avg, down / avg))
+				elif args.len:
+					values.append(len(results[benchmark][tune][ext]))
+				else:
+					values.append(mean(results[benchmark][tune][ext]))
+	
+		print ', '.join(map(str, values))
