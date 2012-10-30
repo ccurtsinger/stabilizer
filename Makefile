@@ -1,5 +1,5 @@
 LEVEL = .
-DIRS = lib
+DIRS = pass runtime
 EXTRA_DIST = include
 
 include $(LEVEL)/Makefile.common
