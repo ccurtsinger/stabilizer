@@ -1,6 +1,11 @@
-LEVEL = .
+ROOT = .
 DIRS = pass runtime
-EXTRA_DIST = include
 
-include $(LEVEL)/Makefile.common
+include $(ROOT)/common.mk
+
+clean::
+	@$(MAKE) -C tests clean
+
+test: build
+	@$(MAKE) -C tests test
 

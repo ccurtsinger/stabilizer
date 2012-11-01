@@ -1,20 +1,13 @@
-LEVEL = ../..
+ROOT = ..
 
-LIBRARYNAME = libstabilizer
-LOADABLE_MODULE = 1
+TARGETS = $(ROOT)/libstabilizer.$(SHLIB_SUFFIX)
+LIBS = 
+INCLUDE_DIRS = $(ROOT)/Heap-Layers \
+    $(ROOT)/DieHard/src/include \
+    $(ROOT)/DieHard/src/include/math \
+    $(ROOT)/DieHard/src/include/static \
+    $(ROOT)/DieHard/src/include/rng \
+    $(ROOT)/DieHard/src/include/layers \
+    $(ROOT)/DieHard/src/include/util
 
-#LIBRARYNAME = stabilizer
-#BUILD_ARCHIVE = 1
-
-include $(LEVEL)/Makefile.common
-
-CFLAGS += -DUSE_DL_PREFIX -DNDEBUG
-CXXFLAGS += --std=c++0x -DNDEBUG -I. -fexceptions -Wno-pedantic \
-	-I hl \
-	-I dh/src/include \
-	-I dh/src/include/rng \
-	-I dh/src/include/math \
-	-I dh/src/include/util \
-	-I dh/src/include/layers \
-	-I dh/src/include/static
-
+include $(ROOT)/common.mk

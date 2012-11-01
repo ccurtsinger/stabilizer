@@ -1,9 +1,8 @@
-LEVEL = ../..
+ROOT = ..
 
-LIBRARYNAME = LLVMStabilizer
-LOADABLE_MODULE = 1
-SHARED_LIBRARY = 1
+TARGETS = $(ROOT)/libLLVMStabilizer.$(SHLIB_SUFFIX)
+LIBS = 
 
-include $(LEVEL)/Makefile.common
+include $(ROOT)/common.mk
 
-CXXFLAGS += --std=c++0x
+CXXFLAGS += -D_DEBUG -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -fno-exceptions -fno-rtti -fno-common

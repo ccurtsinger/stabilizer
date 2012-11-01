@@ -24,6 +24,8 @@
 
 extern "C" int stabilizer_main(int argc, char **argv);
 
+
+
 using namespace std;
 using namespace stabilizer;
 
@@ -71,6 +73,34 @@ namespace stabilizer {
 
 		globals[p] = g;
 	}*/
+    
+#ifdef LAZY_RELOCATION
+    void trap(int sig, siginfo_t *info, void *c) {
+        SET_CONTEXT_IP(c, (intptr_t)GET_CONTEXT_IP(c)-1);
+        struct fn_header *h = (struct fn_header*)GET_CONTEXT_IP(c);
+
+        Function *f = h->obj;
+        live_functions.add(f);
+        
+        f->restoreHeader();
+        f->relocate();
+    }
+#endif
+    
+    void stabilizer_set_trap_handler() {
+#ifdef LAZY_RELOCATION
+        static bool initialized = false;
+        if(!initialized) {
+            struct sigaction sa;
+            sa.sa_sigaction = &trap;
+            sa.sa_flags = SA_SIGINFO;
+
+            sigaction(SIGTRAP, &sa, NULL);
+            
+            initialized = true;
+        }
+#endif
+    }
 
 	extern "C" void stabilizer_register_function(struct fn_info *info) {
 		DEBUG("Registering function %s", info->name);
@@ -113,19 +143,6 @@ namespace stabilizer {
 
 		setitimer(ITIMER_REAL, &timer, 0);
 	}
-	
-#ifdef LAZY_RELOCATION
-	void trap(int sig, siginfo_t *info, void *c) {
-		SET_CONTEXT_IP(c, (intptr_t)GET_CONTEXT_IP(c)-1);
-		struct fn_header *h = (struct fn_header*)GET_CONTEXT_IP(c);
-
-		Function *f = h->obj;
-		live_functions.add(f);
-		
-		f->restoreHeader();
-		f->relocate();
-	}
-#endif
 
 	void segv(int sig, siginfo_t *info, void *c) {
 		fprintf(stderr, "SIGSEGV at %p accessing memory at %p\n", (void*)GET_CONTEXT_IP(c), info->si_addr);
@@ -195,13 +212,7 @@ int main(int argc, char **argv) {
 	set_timer(rerand_interval, rerandomize);
 #endif
 
-#ifdef LAZY_RELOCATION
-	struct sigaction sa;
-	sa.sa_sigaction = &trap;
-	sa.sa_flags = SA_SIGINFO;
-
-	sigaction(SIGTRAP, &sa, NULL);
-#endif
+    stabilizer_set_trap_handler();
 
 	struct sigaction sa2;
 	sa2.sa_sigaction = &segv;

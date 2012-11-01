@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="3.5" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.21022</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{715FF8C8-31DE-4133-B740-6904FCB91E65}</ProjectGuid>
+    <Target>Bin</Target>
+    <Language>CPP</Language>
+    <Compiler>
+      <Compiler ctype="GppCompiler" />
+    </Compiler>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>True</DebugSymbols>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineSymbols>DEBUG MONODEVELOP</DefineSymbols>
+    <SourceDirectory>.</SourceDirectory>
+    <OutputName>stabilizer</OutputName>
+    <CompileTarget>Bin</CompileTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release</OutputPath>
+    <DefineSymbols>MONODEVELOP</DefineSymbols>
+    <SourceDirectory>.</SourceDirectory>
+    <OptimizationLevel>3</OptimizationLevel>
+    <OutputName>stabilizer</OutputName>
+    <CompileTarget>Bin</CompileTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="pass\" />
+    <Folder Include="runtime\" />
+    <Folder Include="platforms\" />
+    <Folder Include="tests\" />
+    <Folder Include="tests\HelloWorld\" />
+    <Folder Include="tests\Context\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="pass\IntrinsicLibcalls.h" />
+    <None Include="pass\Makefile" />
+    <None Include="pass\StabilizedFunction.h" />
+    <None Include="pass\Util.h" />
+    <None Include="runtime\Function.h" />
+    <None Include="runtime\FunctionLocation.h" />
+    <None Include="runtime\Global.h" />
+    <None Include="runtime\Heaps.h" />
+    <None Include="runtime\Jump.h" />
+    <None Include="runtime\Makefile" />
+    <None Include="runtime\Metadata.h" />
+    <None Include="runtime\TLSFLayer.hpp" />
+    <None Include="runtime\Util.h" />
+    <None Include="runtime\list.h" />
+    <None Include="runtime\target.h" />
+    <None Include="runtime\tlsf.h" />
+    <None Include="Makefile" />
+    <None Include="process.py" />
+    <None Include="README.md" />
+    <None Include="run.py" />
+    <None Include="szc.cfg" />
+    <None Include="platforms\Darwin.i386.mk" />
+    <None Include="platforms\Darwin.x86_64.mk" />
+    <None Include="platforms\Linux.i386.mk" />
+    <None Include="platforms\Linux.i686.mk" />
+    <None Include="platforms\Linux.x86_64.mk" />
+    <None Include="common.mk" />
+    <None Include="szc" />
+    <None Include="tests\Makefile" />
+    <None Include="tests\HelloWorld\Makefile" />
+    <None Include="tests\Context\Makefile" />
+    <None Include="tests\Context\stub.asm" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="pass\LowerIntrinsics.cpp" />
+    <Compile Include="pass\Stabilizer.cpp" />
+    <Compile Include="pass\Util.cpp" />
+    <Compile Include="runtime\Function.cpp" />
+    <Compile Include="runtime\FunctionLocation.cpp" />
+    <Compile Include="runtime\Heaps.cpp" />
+    <Compile Include="runtime\libstabilizer.cpp" />
+    <Compile Include="runtime\tlsf.cpp" />
+    <Compile Include="tests\HelloWorld\hello.cpp" />
+    <Compile Include="tests\Context\hello.cpp" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <MonoDevelop>
+      <Properties>
+        <Policies>
+          <TextStylePolicy FileWidth="120" TabsToSpaces="False" inheritsSet="VisualStudio" inheritsScope="text/plain" scope="text/x-makefile" />
+        </Policies>
+        <MonoDevelop.Autotools.MakefileInfo IntegrationEnabled="True" RelativeMakefileName="Makefile" ExecuteTargetName="test">
+          <BuildFilesVar />
+          <DeployFilesVar />
+          <ResourcesVar />
+          <OthersVar />
+          <GacRefVar />
+          <AsmRefVar />
+          <ProjectRefVar />
+        </MonoDevelop.Autotools.MakefileInfo>
+      </Properties>
+    </MonoDevelop>
+  </ProjectExtensions>
+</Project>

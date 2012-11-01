@@ -35,7 +35,7 @@ parser.add_argument('input', nargs='+')
 # Do the parse
 args = parser.parse_args()
 
-STABILIZER_HOME = args.stabilizer+'/Release+Asserts/lib'
+STABILIZER_HOME = args.stabilizer
 FORTRAN = args.fortran
 
 if args.osx:
@@ -121,7 +121,7 @@ def transform(i, args, verbose=False):
 
 	cmd += ' -O'+str(args.O)
 
-	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.'+LIBSUFFIX
+	cmd += ' -load='+STABILIZER_HOME+'/libLLVMStabilizer.'+LIBSUFFIX
 
 	for opt in opts:
 		cmd += ' -'+opt

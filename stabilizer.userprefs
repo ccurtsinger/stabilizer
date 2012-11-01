@@ -1,0 +1,36 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="tests/Context/Makefile">
+    <Files>
+      <File FileName="tests/Context/hello.cpp" Line="11" Column="12" />
+      <File FileName="tests/Context/Makefile" Line="6" Column="1" />
+      <File FileName="tests/Context/stub.asm" Line="7" Column="13" />
+    </Files>
+    <Pads>
+      <Pad Id="ProjectPad">
+        <State expanded="True">
+          <Node name="stabilizer" expanded="True" selected="True">
+            <Node name="pass" expanded="True" />
+            <Node name="runtime" expanded="True" />
+            <Node name="tests" expanded="True">
+              <Node name="Context" expanded="True" />
+            </Node>
+          </Node>
+        </State>
+      </Pad>
+      <Pad Id="ClassPad">
+        <State expanded="True" selected="True" />
+      </Pad>
+      <Pad Id="MonoDevelop.Debugger.WatchPad">
+        <State />
+      </Pad>
+      <Pad Id="ConnectionManagerPad">
+        <State selected="True" />
+      </Pad>
+    </Pads>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>
