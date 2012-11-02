@@ -112,16 +112,13 @@ def transform(i, args, verbose=False):
 	if i.endswith('.o') or i.endswith('.opt.bc'):
 		return i
 
-	if args.osx:
-		cmd = '/usr/src/llvm3.1/Release+Asserts/bin/opt'
-	else:
-		cmd = 'opt'
+	cmd = 'opt'
 		
 	cmd += ' -o='+args.o+'.opt.bc'
 
 	cmd += ' -O'+str(args.O)
 
-	cmd += ' -load='+STABILIZER_HOME+'/libLLVMStabilizer.'+LIBSUFFIX
+	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.'+LIBSUFFIX
 
 	for opt in opts:
 		cmd += ' -'+opt

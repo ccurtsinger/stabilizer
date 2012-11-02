@@ -85,6 +85,13 @@ namespace stabilizer {
         f->restoreHeader();
         f->relocate();
     }
+    
+    extern "C" void doRelocation(fn_header* p) {
+    	Function* f = p->obj;
+    	live_functions.add(f);
+    	f->restoreHeader();
+    	f->relocate();
+    }
 #endif
     
     void stabilizer_set_trap_handler() {

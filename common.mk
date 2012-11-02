@@ -5,7 +5,7 @@ CPU ?= $(shell uname -m)
 # Set the default compilers and flags
 CC = clang
 CXX = clang++
-CFLAGS ?= -O3 -g
+CFLAGS ?= -O3
 CXXFLAGS ?= $(CFLAGS) --std=c++11
 
 # Include platform-specific rules
