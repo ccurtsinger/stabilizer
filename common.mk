@@ -52,26 +52,26 @@ INCFLAGS = $(addprefix -I, $(INCLUDE_DIRS))
 
 build:: $(TARGETS)
 
-obj/%.o: %.c
+obj/%.o: %.c Makefile $(ROOT)/common.mk
 	@mkdir -p obj
 	$(CC) $(CFLAGS) $(INCFLAGS) -c $< -o $@
 
-obj/%.o: %.cpp
+obj/%.o: %.cpp Makefile $(ROOT)/common.mk
 	@mkdir -p obj
 	$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
 	
-obj/%.o: %.cc
+obj/%.o: %.cc Makefile $(ROOT)/common.mk
 	@mkdir -p obj
 	$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
 	
-obj/%.o: %.C
+obj/%.o: %.C Makefile $(ROOT)/common.mk
 	@mkdir -p obj
 	$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
 
-$(filter %.$(SHLIB_SUFFIX), $(TARGETS)):: $(OBJS) $(INCLUDES)
+$(filter %.$(SHLIB_SUFFIX), $(TARGETS)):: $(OBJS) $(INCLUDES) Makefile $(ROOT)/common.mk
 	$(CXXLIB) $(CXXFLAGS) $(INCFLAGS) $(OBJS) -o $@ $(LIBFLAGS)
 
-$(filter-out %.$(SHLIB_SUFFIX), $(TARGETS)):: $(OBJS) $(INCLUDES)
+$(filter-out %.$(SHLIB_SUFFIX), $(TARGETS)):: $(OBJS) $(INCLUDES) Makefile $(ROOT)/common.mk
 	$(CXX) $(CXXFLAGS) $(INCFLAGS) $(OBJS) -o $@ $(LIBFLAGS)
 
 $(RECURSIVE_TARGETS)::

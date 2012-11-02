@@ -24,12 +24,12 @@
 using namespace std;
 
 enum {
-	CodeShuffle = 256,
+	CodeShuffle = 128,
 	CodeProt = PROT_READ | PROT_WRITE | PROT_EXEC,
 	CodeFlags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT,
 	CodeSize = 0x200000,
 	
-	DataShuffle = 256,
+	DataShuffle = 128,
 	DataProt = PROT_READ | PROT_WRITE,
 	DataFlags = MAP_PRIVATE | MAP_ANONYMOUS,
 	DataSize = 0x200000,
@@ -141,7 +141,6 @@ void Code_free(void *p) {
 
 extern "C" {
 	void* DH_malloc(size_t sz) {
-		fprintf(stderr,"malloc: %lu\n", sz);
 		return getDataHeap()->malloc(sz);
 	}
 

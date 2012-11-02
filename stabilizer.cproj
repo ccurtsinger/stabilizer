@@ -35,6 +35,7 @@
     <Folder Include="tests\" />
     <Folder Include="tests\HelloWorld\" />
     <Folder Include="tests\Context\" />
+    <Folder Include="tests\libquantum\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="pass\IntrinsicLibcalls.h" />
@@ -69,6 +70,22 @@
     <None Include="tests\HelloWorld\Makefile" />
     <None Include="tests\Context\Makefile" />
     <None Include="tests\Context\stub.asm" />
+    <None Include="tests\libquantum\Makefile" />
+    <None Include="tests\libquantum\classic.h" />
+    <None Include="tests\libquantum\config.h" />
+    <None Include="tests\libquantum\decoherence.h" />
+    <None Include="tests\libquantum\defs.h" />
+    <None Include="tests\libquantum\gates.h" />
+    <None Include="tests\libquantum\lq_complex.h" />
+    <None Include="tests\libquantum\matrix.h" />
+    <None Include="tests\libquantum\measure.h" />
+    <None Include="tests\libquantum\oaddn.h" />
+    <None Include="tests\libquantum\objcode.h" />
+    <None Include="tests\libquantum\omuln.h" />
+    <None Include="tests\libquantum\qec.h" />
+    <None Include="tests\libquantum\quantum.h" />
+    <None Include="tests\libquantum\qureg.h" />
+    <None Include="tests\libquantum\specrand.h" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="pass\LowerIntrinsics.cpp" />
@@ -81,6 +98,22 @@
     <Compile Include="runtime\tlsf.cpp" />
     <Compile Include="tests\HelloWorld\hello.cpp" />
     <Compile Include="tests\Context\hello.cpp" />
+    <Compile Include="tests\libquantum\classic.c" />
+    <Compile Include="tests\libquantum\complex.c" />
+    <Compile Include="tests\libquantum\decoherence.c" />
+    <Compile Include="tests\libquantum\expn.c" />
+    <Compile Include="tests\libquantum\gates.c" />
+    <Compile Include="tests\libquantum\matrix.c" />
+    <Compile Include="tests\libquantum\measure.c" />
+    <Compile Include="tests\libquantum\oaddn.c" />
+    <Compile Include="tests\libquantum\objcode.c" />
+    <Compile Include="tests\libquantum\omuln.c" />
+    <Compile Include="tests\libquantum\qec.c" />
+    <Compile Include="tests\libquantum\qft.c" />
+    <Compile Include="tests\libquantum\qureg.c" />
+    <Compile Include="tests\libquantum\shor.c" />
+    <Compile Include="tests\libquantum\specrand.c" />
+    <Compile Include="tests\libquantum\version.c" />
   </ItemGroup>
   <ProjectExtensions>
     <MonoDevelop>

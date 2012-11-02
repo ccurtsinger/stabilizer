@@ -1,6 +1,6 @@
 ROOT = ..
 
 RECURSIVE_TARGETS = test
-DIRS = HelloWorld
+DIRS = HelloWorld libquantum
 
 include $(ROOT)/common.mk

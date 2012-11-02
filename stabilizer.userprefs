@@ -1,18 +1,18 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tests/Context/Makefile">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tests/libquantum/Makefile">
     <Files>
-      <File FileName="tests/Context/hello.cpp" Line="11" Column="12" />
-      <File FileName="tests/Context/Makefile" Line="9" Column="1" />
+      <File FileName="tests/libquantum/Makefile" Line="12" Column="41" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
         <State expanded="True">
           <Node name="stabilizer" expanded="True">
-            <Node name="pass" expanded="True" />
             <Node name="runtime" expanded="True" />
             <Node name="tests" expanded="True">
-              <Node name="Context" expanded="True">
+              <Node name="Context" expanded="True" />
+              <Node name="HelloWorld" expanded="True" />
+              <Node name="libquantum" expanded="True">
                 <Node name="Makefile" selected="True" />
               </Node>
             </Node>
