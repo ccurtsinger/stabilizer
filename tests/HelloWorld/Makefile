@@ -7,4 +7,7 @@ CXX = $(ROOT)/szc -stabilizer=$(ROOT) -osx -coderand -stackrand -heaprand -O3
 CXXFLAGS =
 
 test:: hello
-	$(LD_PATH_VAR)=$(ROOT) ./hello
+	@echo $(INDENT)[test] Running 'hello'
+	@echo
+	@$(LD_PATH_VAR)=$(ROOT) ./hello
+	@echo

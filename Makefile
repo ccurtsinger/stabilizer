@@ -8,4 +8,3 @@ clean::
 
 test: build
 	@$(MAKE) -C tests test
-

@@ -50,7 +50,7 @@ opts.append('lowerswitch')
 
 args.l.append('stdc++')
 args.f.append('PIC')
-args.v = True
+#args.v = True
 
 if args.coderand or args.stackrand or args.heaprand or args.globrand:
 	args.L.append(STABILIZER_HOME)

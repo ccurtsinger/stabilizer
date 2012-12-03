@@ -9,4 +9,7 @@ CFLAGS = -DSPEC_CPU -DSPEC_CPU_MACOSX
 CXXFLAGS =
 
 test:: libquantum
-	$(LD_PATH_VAR)=$(ROOT) ./libquantum 128
+	@echo $(INDENT)[test] Running 'libquantum'
+	@echo
+	@$(LD_PATH_VAR)=$(ROOT) ./libquantum 128
+	@echo
