@@ -94,6 +94,11 @@ struct StabilizerPass : public ModulePass {
 		}
 	}
 	
+	/**
+	 * \brief Entry point for the Stabilizer compiler pass
+	 * \arg m The module being transformed
+	 * \returns whether or not the module was modified (always true)
+	 */
 	virtual bool runOnModule(Module &m) {
 		// Some floating point constants go to the constant pool, which is embedded
 		// in the .text section.  For platforms that use PC-relative data addressing,
@@ -509,7 +514,8 @@ struct StabilizerPass : public ModulePass {
 					to_delete.push_back(&i);
 					
 				} else {
-					size_t index = 0;
+					// TODO: Code below is possibly unnecessary... needs further testing
+					/*size_t index = 0;
 					for(Instruction::op_iterator op_iter = i.op_begin(); op_iter != i.op_end(); op_iter++) {
 						Value* op = *op_iter;
 						
@@ -532,7 +538,7 @@ struct StabilizerPass : public ModulePass {
 						}
 						
 						index++;
-					}
+					}*/
 				}
 			}
 		}
@@ -545,6 +551,11 @@ struct StabilizerPass : public ModulePass {
 		}
 	}
 	
+	/**
+	 * \brief Check if a constant value contains a floating point constant
+	 * \arg c The constant to check
+	 * \returns true if c is a ConstantFP or contains a ConstantFP
+	 */
 	bool containsConstantFloat(Constant* c) {
 		if(isa<ConstantFP>(c)) {
 			return true;
