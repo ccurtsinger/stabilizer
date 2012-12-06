@@ -79,21 +79,21 @@ struct Jump {
 		uintptr_t pos_offset = t - (uintptr_t)this;
 		intptr_t neg_offset = (intptr_t)this - (intptr_t)t;
 
-		printf("%p->%p +%p -%p\n", this, t, pos_offset, neg_offset);
+		//printf("%p->%p +%p -%p\n", this, t, pos_offset, neg_offset);
 
 		if(t < 1<<25) {
-			printf("  use absolute jump\n");
+			//printf("  use absolute jump\n");
 			ba = 0x48000002;
 			ba |= t & 0x03FFFFFCu;
 		} else if(pos_offset < 1<<25) {
-			printf("  use positive offset\n");
+			//printf("  use positive offset\n");
 			ba = 0x48000000;
 			ba |= pos_offset & 0x03FFFFFC;
 		} else if(-neg_offset < 1<<25) {
-			printf("  use negative offset\n");
+			//printf("  use negative offset\n");
 			ba |= neg_offset & 0x03FFFFFC;
 		} else {
-			printf("  jump target is out of range\n");
+			//printf("  jump target is out of range\n");
 			lis_to_r0=0x3c000000 | ((t>>16)&0xFFFFu);
  			ori_r0=0x60000000 | (t&0xFFFFu);
  			mtctr=0x7c0903a6;

@@ -4,6 +4,7 @@ import os
 import sys
 import random
 import argparse
+from distutils import util
 
 parser = argparse.ArgumentParser(description="Stabilizer Compiler Driver")
 
@@ -18,7 +19,7 @@ parser.add_argument('-globrand', action='store_true')
 parser.add_argument('-v', action='store_true')
 parser.add_argument('-fortran', action='store_true')
 parser.add_argument('-gcc', action='store_true')
-parser.add_argument('-osx', action='store_true')
+parser.add_argument('-osx', action='store_true', default=util.get_platform().startswith('macosx'))
 parser.add_argument('-linkrand', action='store_true')
 
 # Compiler pass-through arguments

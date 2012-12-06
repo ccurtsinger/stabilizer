@@ -1,6 +1,7 @@
 #ifndef RUNTIME_UTIL_H
 #define RUNTIME_UTIL_H
 
+#include <stdint.h>
 #include <sys/mman.h>
 
 #ifndef PAGESIZE
@@ -37,6 +38,17 @@
 
 #define ALIGN_DOWN(x, y) (void*)((uintptr_t)(x) - ((uintptr_t)(x) % (y)))
 #define ALIGN_UP(x, y) ALIGN_DOWN(((uintptr_t)x + y - 1), y)
+
+static void flush_icache(void* begin, size_t size) {
+#if defined(PPC)
+    uintptr_t p = (uintptr_t)begin & ~15UL;
+    for (size_t i = 0; i < size; i += 16) {
+        asm("icbi 0,%0" : : "r"(p));
+		p += 16;
+    }
+    asm("isync");
+#endif
+}
 
 #ifndef NDEBUG
 #include <stdio.h>

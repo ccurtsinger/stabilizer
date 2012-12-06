@@ -10,7 +10,6 @@ CXX = $(CC)
 CFLAGS = -DSPEC_CPU -DSPEC_CPU_MACOSX
 CXXFLAGS =
 
-$(TARGETS):: $(ROOT)/szc $(ROOT)/libstabilizer.$(SHLIB_SUFFIX)
 $(OBJS):: $(ROOT)/szc $(ROOT)/LLVMStabilizer.$(SHLIB_SUFFIX)
 
 test:: libquantum

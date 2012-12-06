@@ -104,7 +104,7 @@ struct StabilizerPass : public ModulePass {
 		// in the .text section.  For platforms that use PC-relative data addressing,
 		// replace these with explicit global variables.
 		if(isDataPCRelative(m)) {
-			for(Module::iterator f_iter = m.begin(); f_iter != m.end(); f_iter++) {
+			/*for(Module::iterator f_iter = m.begin(); f_iter != m.end(); f_iter++) {
 				Function& f = *f_iter;
 				for(Function::iterator b_iter = f.begin(); b_iter != f.end(); b_iter++) {
 					BasicBlock& b = *b_iter;
@@ -115,7 +115,7 @@ struct StabilizerPass : public ModulePass {
 						}
 					}
 				}
-			}
+			}*/
 		}
 
 		// Replace calls to heap functions with Stabilizer's random heap
@@ -514,31 +514,41 @@ struct StabilizerPass : public ModulePass {
 					to_delete.push_back(&i);
 					
 				} else {
-					// TODO: Code below is possibly unnecessary... needs further testing
-					/*size_t index = 0;
 					for(Instruction::op_iterator op_iter = i.op_begin(); op_iter != i.op_end(); op_iter++) {
 						Value* op = *op_iter;
 						
 						if(isa<Constant>(op)) {
 							Constant* c = dyn_cast<Constant>(op);
 							
-							if(c->getType()->isDoubleTy() || c->getType()->isFloatTy()) {
-								errs() << "Extracting floating point constant!\n  ";
-								op->print(errs());
-								errs() << " :: ";
-								op->getType()->print(errs());
-								errs() << "\n";
-
+							if(containsConstantFloat(c)) {
 								Type* t = op->getType();
 
-								GlobalVariable* g = new GlobalVariable(m, t, true, GlobalVariable::InternalLinkage, c, "stabilizer_fconst");
-								LoadInst* load = new LoadInst(g, "fconst.load", &i);
-								i.setOperand(index, load);
+								GlobalVariable* g = new GlobalVariable(m, t, true, GlobalVariable::InternalLinkage, c, "fconst");
+								
+								Instruction* insertion_point = &i;
+								
+								if(isa<PHINode>(insertion_point)) {
+									PHINode* phi = dyn_cast<PHINode>(insertion_point);
+									BasicBlock *incoming = phi->getIncomingBlock(*op_iter);
+									insertion_point = incoming->getTerminator();
+								}
+
+								LoadInst* load = new LoadInst(g, "fconst.load", insertion_point);
+
+								if(isa<PHINode>(&i)) {
+									PHINode* phi = dyn_cast<PHINode>(op_iter->getUser());
+									BasicBlock* incoming = phi->getIncomingBlock(*op_iter);
+									while(phi->getBasicBlockIndex(incoming) != -1) {
+										phi->removeIncomingValue(incoming, false);
+									}
+									phi->addIncoming(load, incoming);
+
+								} else {
+									op_iter->set(load);
+								}
 							}
 						}
-						
-						index++;
-					}*/
+					}
 				}
 			}
 		}

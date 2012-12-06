@@ -1,5 +1,4 @@
 
 SZCFLAGS = 
 LD_PATH_VAR = LD_LIBRARY_PATH
-CXXFLAGS += -DCUSTOM_PREFIX\(x\)=proto_\#\#x -msse3
 CXXLIB = $(CXX) -shared -fPIC

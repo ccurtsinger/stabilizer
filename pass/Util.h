@@ -26,8 +26,4 @@ using namespace types;
 
 Function* MakeConstructor(Module &m, StringRef name);
 
-set<Instruction*> Instructify(Value *v);
-
-void GlobifyFloats(Module &m, Value *v);
-
 #endif
