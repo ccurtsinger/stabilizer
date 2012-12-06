@@ -200,7 +200,7 @@ struct StabilizerPass : public ModulePass {
 		
 		// Replace some floating point operations with calls to un-randomized functions
 		if(isDataPCRelative(m)) {
-			extractFloatOps(f);
+			extractFloatOperations(f);
 		}
 		
 		// Collect all the referenced global values in this function
@@ -253,9 +253,7 @@ struct StabilizerPass : public ModulePass {
 			
 			// Rewrite global references to use the relocation table
 			size_t index = 0;
-			for(vector<Constant*>::iterator c_iter = referencedValues.begin();
-				c_iter != referencedValues.end(); c_iter++) {
-				
+			for(vector<Constant*>::iterator c_iter = referencedValues.begin(); c_iter != referencedValues.end(); c_iter++) {
 				Constant* c = *c_iter;
 				
 				for(set<Use*>::iterator u_iter = references[c].begin();
@@ -447,7 +445,9 @@ struct StabilizerPass : public ModulePass {
 					for(set<Use*>::iterator lu_iter = lus.begin();
 						lu_iter != lus.end(); lu_iter++) {
 						
-						uses.insert(*lu_iter);
+						if(isUseInFunction(**lu_iter, f)) {
+							uses.insert(*lu_iter);
+						}
 					}
 				}
 			}
@@ -480,7 +480,7 @@ struct StabilizerPass : public ModulePass {
 	 * 
 	 * \arg f The function to scan for floating point operations
 	 */
-	void extractFloatOps(Function& f) {
+	void extractFloatOperations(Function& f) {
 		Module& m = *f.getParent();
 		vector<Instruction*> to_delete;
 		for(Function::iterator b_iter = f.begin(); b_iter != f.end(); b_iter++) {
@@ -507,6 +507,32 @@ struct StabilizerPass : public ModulePass {
 
 					i.replaceAllUsesWith(ci);
 					to_delete.push_back(&i);
+					
+				} else {
+					size_t index = 0;
+					for(Instruction::op_iterator op_iter = i.op_begin(); op_iter != i.op_end(); op_iter++) {
+						Value* op = *op_iter;
+						
+						if(isa<Constant>(op)) {
+							Constant* c = dyn_cast<Constant>(op);
+							
+							if(c->getType()->isDoubleTy() || c->getType()->isFloatTy()) {
+								errs() << "Extracting floating point constant!\n  ";
+								op->print(errs());
+								errs() << " :: ";
+								op->getType()->print(errs());
+								errs() << "\n";
+
+								Type* t = op->getType();
+
+								GlobalVariable* g = new GlobalVariable(m, t, true, GlobalVariable::InternalLinkage, c, "stabilizer_fconst");
+								LoadInst* load = new LoadInst(g, "fconst.load", &i);
+								i.setOperand(index, load);
+							}
+						}
+						
+						index++;
+					}
 				}
 			}
 		}
@@ -517,6 +543,24 @@ struct StabilizerPass : public ModulePass {
 			Instruction* i = *i_iter;
 			i->eraseFromParent();
 		}
+	}
+	
+	bool containsConstantFloat(Constant* c) {
+		if(isa<ConstantFP>(c)) {
+			return true;
+			
+		} else if(isa<ConstantExpr>(c)) {
+			
+			for(Constant::op_iterator op_iter = c->op_begin(); op_iter != c->op_end(); op_iter++) {
+				Constant* op = dyn_cast<Constant>(op_iter->get());
+				
+				if(containsConstantFloat(op)) {
+					return true;
+				}
+			}
+		}
+		
+		return false;
 	}
 	
 	/**
