@@ -6,7 +6,7 @@ CPU ?= $(shell uname -m)
 CC = clang
 CXX = clang++
 CFLAGS ?= -O3
-CXXFLAGS ?= $(CFLAGS) --std=c++11
+CXXFLAGS ?= $(CFLAGS)
 
 # Include platform-specific rules
 include $(ROOT)/platforms/$(OS).$(CPU).mk
@@ -55,22 +55,22 @@ INCFLAGS = $(addprefix -I, $(INCLUDE_DIRS))
 
 build:: $(TARGETS) $(INCLUDE_DIRS)
 
-obj/%.o: %.c Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
+obj/%.o:: %.c Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
 	@mkdir -p obj
 	@echo $(INDENT)[$(notdir $(firstword $(CC)))] Compiling $< -\> $@
 	@$(CC) $(CFLAGS) $(INCFLAGS) -c $< -o $@
 
-obj/%.o: %.cpp Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
+obj/%.o:: %.cpp Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
 	@mkdir -p obj
 	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< -\> $@
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
 	
-obj/%.o: %.cc Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
+obj/%.o:: %.cc Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
 	@mkdir -p obj
 	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< -\> $@
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
 	
-obj/%.o: %.C Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
+obj/%.o:: %.C Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
 	@mkdir -p obj
 	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< -\> $@
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@

@@ -1,13 +1,7 @@
-//
-//  util.h
-//  stabilizer2
-//
-//  Created by Charlie Curtsinger on 9/13/11.
-//  Copyright 2011 University of Massachusetts. All rights reserved.
-//
+#ifndef RUNTIME_UTIL_H
+#define RUNTIME_UTIL_H
 
-#ifndef stabilizer2_util_h
-#define stabilizer2_util_h
+#include <sys/mman.h>
 
 #ifndef PAGESIZE
 #define PAGESIZE 4096
@@ -20,6 +14,14 @@
 #ifndef MAP_32BIT
 #define MAP_32BIT 0
 #endif
+
+
+#if !defined(_XOPEN_SOURCE)
+// Digging inside of ucontext_t is deprecated unless this macros is defined
+#define _XOPEN_SOURCE
+#endif
+
+#include <ucontext.h>
 
 #if defined(__APPLE__)
 

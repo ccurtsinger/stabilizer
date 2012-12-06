@@ -135,7 +135,7 @@ def link(inputs, args, verbose=False):
 	if FORTRAN and not args.c:
 		cmd = 'gfortran -O0'
 	else:
-		cmd = 'clang -O0'
+		cmd = 'clang -g -O0'
 
 	if args.c:
 		cmd += ' -c'

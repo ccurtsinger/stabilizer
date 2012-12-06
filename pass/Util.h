@@ -24,14 +24,10 @@ using namespace std;
 using namespace llvm;
 using namespace types;
 
-GlobalVariable* MakeTable(Module &m, StringRef name, vector<Constant*> values);
-GlobalVariable* MakeTable(Module &m, StringRef name, vector<GlobalValue*> values);
-
 Function* MakeConstructor(Module &m, StringRef name);
 
 set<Instruction*> Instructify(Value *v);
 
 void GlobifyFloats(Module &m, Value *v);
-Function* getFloatConversion(Module &m, Type *in, Type *out, bool is_signed);
 
 #endif

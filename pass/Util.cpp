@@ -8,32 +8,6 @@
 using namespace std;
 using namespace llvm;
 
-GlobalVariable* MakeTable(Module &m, StringRef name, vector<GlobalValue*> values) {
-	vector<Constant*> constants;
-	for(GlobalValue* v: values) {
-		constants.push_back(ConstantExpr::getBitCast(v, Type::getInt8PtrTy(m.getContext())));
-	}
-	
-	constants.push_back(Constant::getNullValue(Type::getInt8PtrTy(m.getContext())));
-	
-	return MakeTable(m, name, constants);
-}
-
-GlobalVariable* MakeTable(Module &m, StringRef name, vector<Constant*> values) {
-	Constant *c = *values.begin();
-	Type *t = c->getType();
-	ArrayType *at = ArrayType::get(t, values.size());
-	
-	return new GlobalVariable(
-		m,
-		at,
-		true,
-		GlobalVariable::InternalLinkage,
-		ConstantArray::get(at, values),
-		name
-	);
-}
-
 Function* MakeConstructor(Module &m, StringRef name) {
 	// Void type
 	Type* void_t = Type::getVoidTy(m.getContext());
@@ -110,63 +84,6 @@ Function* MakeConstructor(Module &m, StringRef name) {
 	}
 	
 	return init;
-}
-
-Function* getFloatConversion(Module &m, Type *in, Type *out, bool is_signed) {
-	stringstream ss;
-
-	if(in->isIntegerTy() && !out->isIntegerTy()) {
-		if(!is_signed) {
-			ss<<"uitofp";
-		} else {
-			ss<<"sitofp";
-		}
-	} else if(!in->isIntegerTy() && out->isIntegerTy()) {
-		if(!is_signed) {
-			ss<<"fptoui";
-		} else {
-			ss<<"fptosi";
-		}
-	} else {
-		errs()<<"Invalid float conversion arguments\n";
-		errs()<<"  in: "<<in<<"\n";
-		errs()<<"  out: "<<out<<"\n";
-		abort();
-	}
-
-	ss<<"."<<in<<"."<<out;
-
-	string name = ss.str();
-
-	vector<Type*> params;
-	params.push_back(in);
-	Function *f = m.getFunction(name);
-
-	if(f == NULL) {
-		f = Function::Create(
-			FunctionType::get(out, ArrayRef<Type*>(params), false),
-			Function::InternalLinkage,
-			name,
-			&m
-		);
-
-		BasicBlock *b = BasicBlock::Create(m.getContext(), "", f);
-		Instruction *r;
-
-		if(is_signed && in->isIntegerTy()) {
-			r = new SIToFPInst(&*f->arg_begin(), out, "", b);
-		} else if(is_signed && out->isIntegerTy()) {
-			r = new FPToSIInst(&*f->arg_begin(), out, "", b);
-		} else if(!is_signed && in->isIntegerTy()) {
-			r = new UIToFPInst(&*f->arg_begin(), out, "", b);
-		} else {
-			r = new FPToUIInst(&*f->arg_begin(), out, "", b);
-		}
-
-		ReturnInst::Create(m.getContext(), r, b);
-	}
-
-	return f;
 }
 
 set<Instruction*> Instructify(Value *v) {

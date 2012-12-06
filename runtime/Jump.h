@@ -1,7 +1,7 @@
-#include <new>
-
 #ifndef RUNTIME_JUMP_H
 #define RUNTIME_JUMP_H
+
+#include <new>
 
 struct X86Jump32 {
 	volatile uint8_t jmp_opcode;
