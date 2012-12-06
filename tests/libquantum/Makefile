@@ -5,7 +5,7 @@ build:: libquantum
 
 include $(ROOT)/common.mk
 
-CC = $(ROOT)/szc -stabilizer=$(ROOT) -osx -coderand -stackrand -O3
+CC = $(ROOT)/szc -stabilizer=$(ROOT) -coderand -stackrand -O3
 CXX = $(CC)
 CFLAGS = -DSPEC_CPU -DSPEC_CPU_MACOSX
 CXXFLAGS =

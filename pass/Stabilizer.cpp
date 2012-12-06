@@ -278,7 +278,7 @@ struct StabilizerPass : public ModulePass {
 					// Get the relocation table slot
 					vector<Constant*> indices;
 					indices.push_back(Constant::getIntegerValue(Type::getInt32Ty(m.getContext()), APInt(32, 0, false)));
-					indices.push_back(Constant::getIntegerValue(Type::getInt32Ty(m.getContext()), APInt(32, index, false)));
+					indices.push_back(Constant::getIntegerValue(Type::getInt32Ty(m.getContext()), APInt(32, (uint64_t)index, false)));
 					
 					Constant* slot = ConstantExpr::getGetElementPtr(
 						actualRelocationTable,

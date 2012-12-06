@@ -3,7 +3,7 @@ TARGETS = hello
 
 include $(ROOT)/common.mk
 
-CXX = $(ROOT)/szc -stabilizer=$(ROOT) -osx -coderand -stackrand -heaprand -O3
+CXX = $(ROOT)/szc -stabilizer=$(ROOT) -coderand -stackrand -heaprand -O3
 CXXFLAGS =
 
 test:: hello
