@@ -1,41 +1,40 @@
 #define DEBUG_TYPE "stabilizer"
 
-#include <llvm/Module.h>
-#include <llvm/Function.h>
-#include <llvm/Instructions.h>
-#include <llvm/Constants.h>
-#include <llvm/Type.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/Intrinsics.h>
 #include <llvm/Pass.h>
+#include <llvm/Module.h>
+#include <llvm/Constants.h>
+#include <llvm/Intrinsics.h>
+#include <llvm/Instructions.h>
 
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/TypeBuilder.h>
 
-#include "Util.h"
-
-#include <vector>
 #include <map>
-#include <iostream>
+#include <set>
+#include <vector>
+#include <llvm/Intrinsics.gen>
 
 using namespace llvm;
+using namespace llvm::types;
+using namespace llvm::cl;
+
 using namespace std;
 
-#define ALIGN 64
+enum { ALIGN = 64 };
 
 // Randomization configuration options
-cl::opt<bool> stabilize_heap   ("stabilize-heap",    cl::init(false), cl::desc("Randomize heap object placement"));
-cl::opt<bool> stabilize_globals("stabilize-globals", cl::init(false), cl::desc("Randomize global placement"));
-cl::opt<bool> stabilize_stack  ("stabilize-stack",   cl::init(false), cl::desc("Randomize stack frame placement"));
-cl::opt<bool> stabilize_code   ("stabilize-code",    cl::init(false), cl::desc("Randomize function placement"));
-
-cl::opt<bool> enable_threads("stabilizer-enable-threads", cl::init(false), cl::desc("Enable multithreaded support"));
+opt<bool> stabilize_heap   ("stabilize-heap",    init(false), desc("Randomize heap object placement"));
+opt<bool> stabilize_globals("stabilize-globals", init(false), desc("Randomize global placement"));
+opt<bool> stabilize_stack  ("stabilize-stack",   init(false), desc("Randomize stack frame placement"));
+opt<bool> stabilize_code   ("stabilize-code",    init(false), desc("Randomize function placement"));
 
 struct StabilizerPass : public ModulePass {
 	static char ID;
 
 	Function* registerFunction;
+	Function* registerConstructor;
+	Function* stackPadding;
 	
 	StabilizerPass() : ModulePass(ID) {}
 
@@ -100,24 +99,6 @@ struct StabilizerPass : public ModulePass {
 	 * \returns whether or not the module was modified (always true)
 	 */
 	virtual bool runOnModule(Module &m) {
-		// Some floating point constants go to the constant pool, which is embedded
-		// in the .text section.  For platforms that use PC-relative data addressing,
-		// replace these with explicit global variables.
-		if(isDataPCRelative(m)) {
-			/*for(Module::iterator f_iter = m.begin(); f_iter != m.end(); f_iter++) {
-				Function& f = *f_iter;
-				for(Function::iterator b_iter = f.begin(); b_iter != f.end(); b_iter++) {
-					BasicBlock& b = *b_iter;
-					for(BasicBlock::iterator i_iter = b.begin(); i_iter != b.end(); i_iter++) {
-						Instruction& i = *i_iter;
-						for(Instruction::op_iterator op = i.op_begin(); op != i.op_end(); op++) {
-							GlobifyFloats(m, op->get());
-						}
-					}
-				}
-			}*/
-		}
-
 		// Replace calls to heap functions with Stabilizer's random heap
 		if(stabilize_heap) {
 			randomizeHeap(m);
@@ -136,13 +117,26 @@ struct StabilizerPass : public ModulePass {
 		
 		declareRuntimeFunctions(m);
 
-		// TODO: Randomize Stack
+		// Enable stack randomization
+		if(stabilize_stack) {
+			// Transform each function
+			for(set<Function*>::iterator f_iter = local_functions.begin();
+			f_iter != local_functions.end(); f_iter++) {
+				
+				randomizeStack(m, **f_iter);
+			}
+		}
 
-		// Add a module constructor
-		Function *ctor = MakeConstructor(m, "stabilizer.module_ctor");
-		BasicBlock *ctor_bb = BasicBlock::Create(m.getContext(), "", ctor);
+		// Get any existing module constructors
+		vector<Value*> old_ctors = getConstructors(m);
+		
+		// Create a new constructor
+		Function* ctor = makeConstructor(m, "stabilizer.module_ctor");
+		BasicBlock* ctor_bb = BasicBlock::Create(m.getContext(), "", ctor);
 
+		// Enable code randomization
 		if(stabilize_code) {
+			// Transform each function and register it with the stabilizer runtime
 			for(set<Function*>::iterator f_iter = local_functions.begin();
 				f_iter != local_functions.end(); f_iter++) {
 				
@@ -150,6 +144,13 @@ struct StabilizerPass : public ModulePass {
 				vector<Value*> args = randomizeCode(m, *f);
 				CallInst::Create(registerFunction, args, "", ctor_bb);
 			}
+		}
+		
+		// Register each existing constructor with the stabilizer runtime
+		for(vector<Value*>::iterator ctor_iter = old_ctors.begin(); ctor_iter != old_ctors.end(); ctor_iter++) {
+			vector<Value*> args;
+			args.push_back(*ctor_iter);
+			CallInst::Create(registerConstructor, args, "", ctor_bb);
 		}
 		
 		ReturnInst::Create(m.getContext(), ctor_bb);
@@ -160,6 +161,172 @@ struct StabilizerPass : public ModulePass {
 		}
 
 		return true;
+	}
+	
+	/**
+	 * \brief Get a list of module constructors
+	 * \arg m The module to scan
+	 */
+	vector<Value*> getConstructors(Module& m) {
+		vector<Value*> result;
+		
+		// Get the constructor table
+		GlobalVariable *ctors = m.getGlobalVariable("llvm.global_ctors", false);
+		
+		// If not found, there aren't any constructors
+		if(ctors != NULL) {
+			// Get the constructor table initializer
+			ConstantArray* table = dyn_cast<ConstantArray>(ctors->getInitializer());
+
+			// Get each entry in the table
+			for(ConstantArray::op_iterator i = table->op_begin(); i != table->op_end(); i++) {
+				ConstantStruct* entry = dyn_cast<ConstantStruct>(i->get());
+				Constant* f = entry->getOperand(1);
+				result.push_back(f);
+			}
+		}
+		
+		return result;
+	}
+	
+	/**
+	 * \brief Create a single module constructor
+	 * Replaces any existing constructors
+	 * \arg m The module to add a constructor to
+	 * \arg name The name of the new constructor function
+	 * \returns The new constructor function
+	 */
+	Function* makeConstructor(Module& m, StringRef name) {
+		// Void type
+		Type* void_t = Type::getVoidTy(m.getContext());
+
+		// 32 bit integer type
+		Type* i32_t = Type::getInt32Ty(m.getContext());
+
+		// Constructor function type
+		FunctionType* ctor_fn_t = FunctionType::get(void_t, false);
+		PointerType* ctor_fn_p_t = PointerType::get(ctor_fn_t, 0);
+
+		// Constructor table entry type
+		StructType* ctor_entry_t = StructType::get(i32_t, ctor_fn_p_t, NULL);
+
+		// Create constructor function
+		Function* init = Function::Create(ctor_fn_t, Function::InternalLinkage, name, &m);
+
+		// Sequence of constructor table entries
+		vector<Constant*> ctor_entries;
+
+		// Add the entry for the new constructor
+		ctor_entries.push_back(
+			ConstantStruct::get(ctor_entry_t,
+				ConstantInt::get(i32_t, 65535, false),
+				init,
+				NULL
+			)
+		);
+		
+		// set up the constant initializer for the new constructor table
+		Constant *ctor_array_const = ConstantArray::get(
+			ArrayType::get(
+				ctor_entries[0]->getType(),
+				ctor_entries.size()
+			),
+			ctor_entries
+		);
+
+		// create the new constructor table
+		GlobalVariable *new_ctors = new GlobalVariable(
+			m,
+			ctor_array_const->getType(),
+			true,
+			GlobalVariable::AppendingLinkage,
+			ctor_array_const,
+			""
+		);
+
+		// Get the existing constructor array from the module, if any
+		GlobalVariable *ctors = m.getGlobalVariable("llvm.global_ctors", false);
+		
+		// give the new constructor table the appropriate name, taking it from the current table if one exists
+		if(ctors) {
+			new_ctors->takeName(ctors);
+			ctors->setName("old.llvm.global_ctors");
+			ctors->setLinkage(GlobalVariable::PrivateLinkage);
+		} else {
+			new_ctors->setName("llvm.global_ctors");
+		}
+		
+		return init;
+	}
+	
+	/**
+	 * 
+	 */
+	void randomizeStack(Module& m, llvm::Function& f) {
+		Function* stacksave = Intrinsic::getDeclaration(&m, Intrinsic::stacksave);
+		Function* stackrestore = Intrinsic::getDeclaration(&m, Intrinsic::stackrestore);
+		
+		vector<CallInst*> calls;
+		
+		for(Function::iterator b_iter = f.begin(); b_iter != f.end(); b_iter++) {
+			BasicBlock& b = *b_iter;
+			
+			for(BasicBlock::iterator i_iter = b.begin(); i_iter != b.end(); i_iter++) {
+				Instruction& i = *i_iter;
+				
+				if(isa<CallInst>(&i)) {
+					CallInst* c = dyn_cast<CallInst>(&i);
+					calls.push_back(c);
+				}
+			}
+		}
+		
+		for(vector<CallInst*>::iterator c_iter = calls.begin(); c_iter != calls.end(); c_iter++) {
+			CallInst* c = *c_iter;
+			Instruction* next = c->getNextNode();
+			
+			CallInst* oldStack = CallInst::Create(stacksave, "", c);
+			PtrToIntInst* oldStackInt = new PtrToIntInst(oldStack, Type::getInt64Ty(m.getContext()), "", c);
+
+			CallInst* padSize = CallInst::Create(stackPadding, "", c);
+
+			BinaryOperator* newStackInt = BinaryOperator::CreateSub(oldStackInt, padSize, "", c);
+			IntToPtrInst* newStack = new IntToPtrInst(newStackInt, Type::getInt8PtrTy(m.getContext()), "", c);
+
+			vector<Value*> newStackArgs;
+			newStackArgs.push_back(newStack);
+			CallInst::Create(stackrestore, newStackArgs, "", c);
+
+			vector<Value*> oldStackArgs;
+			oldStackArgs.push_back(oldStack);
+			CallInst::Create(stackrestore, oldStackArgs, "", next);
+		}
+		
+		/*BasicBlock& entry = f.getEntryBlock();
+		Instruction* insertion_point = entry.getFirstNonPHI();
+			
+		CallInst* oldStack = CallInst::Create(stacksave, "", insertion_point);
+		PtrToIntInst* oldStackInt = new PtrToIntInst(oldStack, Type::getInt64Ty(m.getContext()), "", insertion_point);
+		
+		CallInst* padSize = CallInst::Create(stackPadding, "", insertion_point);
+		
+		BinaryOperator* newStackInt = BinaryOperator::CreateSub(oldStackInt, padSize, "", insertion_point);
+		IntToPtrInst* newStack = new IntToPtrInst(newStackInt, Type::getInt8PtrTy(m.getContext()), "", insertion_point);
+		
+		vector<Value*> newStackArgs;
+		newStackArgs.push_back(newStack);
+		CallInst::Create(stackrestore, newStackArgs, "", insertion_point);
+		
+		for(Function::iterator b_iter = f.begin(); b_iter != f.end(); b_iter++) {
+			BasicBlock& b = *b_iter;
+			
+			Instruction* terminator = b.getTerminator();
+			if(isa<ReturnInst>(terminator)) {
+				vector<Value*> oldStackArgs;
+				oldStackArgs.push_back(oldStack);
+				CallInst::Create(stackrestore, oldStackArgs, "", terminator);
+			}
+		}*/
 	}
 	
 	/**
@@ -741,6 +908,22 @@ struct StabilizerPass : public ModulePass {
 			 Function::ExternalLinkage,
 			 "stabilizer_register_function",
 			 &m
+		);
+		
+		// Declare the register_constructor runtime function
+		registerConstructor = Function::Create(
+			TypeBuilder<void(void()), true>::get(m.getContext()),
+			Function::ExternalLinkage,
+			"stabilizer_register_constructor",
+			&m
+		);
+		
+		// Declare the stack_padding runtime function
+		stackPadding = Function::Create(
+			TypeBuilder<i<64>(), true>::get(m.getContext()),
+			Function::ExternalLinkage,
+			"stabilizer_stack_padding",
+			&m
 		);
 	}
 };
