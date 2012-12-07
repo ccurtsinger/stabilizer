@@ -493,23 +493,18 @@ struct StabilizerPass : public ModulePass {
 			for(BasicBlock::iterator i_iter = b.begin(); i_iter != b.end(); i_iter++) {
 				Instruction& i = *i_iter;
 				
-				if(dyn_cast<FPToSIInst>(&i) || dyn_cast<SIToFPInst>(&i)) {
-					Function *f = getFloatConversion(m, i.getOperand(0)->getType(), i.getType(), true);
-
+				if(isa<FPToSIInst>(&i)
+					|| isa<FPToUIInst>(&i)
+					|| isa<SIToFPInst>(&i)
+					|| isa<UIToFPInst>(&i)
+					|| (isa<FPTruncInst>(&i) && getPlatform(m) == PowerPC)) {
+					
+					Function* f = getFloatConversion(m, i.getOpcode(), i.getOperand(0)->getType(), i.getType());
+					
 					vector<Value*> args;
 					args.push_back(i.getOperand(0));
 					CallInst *ci = CallInst::Create(f, ArrayRef<Value*>(args), "", &i);
-
-					i.replaceAllUsesWith(ci);
-					to_delete.push_back(&i);
-
-				} else if(dyn_cast<FPToUIInst>(&i) || dyn_cast<UIToFPInst>(&i)) {
-					Function *f = getFloatConversion(m, i.getOperand(0)->getType(), i.getType(), false);
-
-					vector<Value*> args;
-					args.push_back(i.getOperand(0));
-					CallInst *ci = CallInst::Create(f, ArrayRef<Value*>(args), "", &i);
-
+					
 					i.replaceAllUsesWith(ci);
 					to_delete.push_back(&i);
 					
@@ -596,28 +591,38 @@ struct StabilizerPass : public ModulePass {
 	 * \arg is_signed If true, the function should generate a signed integer conversion
 	 * \returns A pointer to a function that performs the required type conversion
 	 */
-	Function* getFloatConversion(Module& m, Type* in, Type* out, bool is_signed) {
+	Function* getFloatConversion(Module& m, unsigned opcode, Type* in, Type* out) {
 		// LLVM stream bullshit
 		string name;
 		raw_string_ostream ss(name);
-
-		// Generate a canonical name for this function
-		if(in->isIntegerTy() && !out->isIntegerTy()) {
-			if(!is_signed) {
-				ss<<"uitofp";
-			} else {
-				ss<<"sitofp";
-			}
-		} else if(!in->isIntegerTy() && out->isIntegerTy()) {
-			if(!is_signed) {
-				ss<<"fptoui";
-			} else {
-				ss<<"fptosi";
-			}
+		
+		if(opcode == Instruction::FPToUI) {
+			ss << "fptoui";
+			
+		} else if(opcode == Instruction::FPToSI) {
+			ss << "fptosi";
+			
+		} else if(opcode == Instruction::UIToFP) {
+			ss << "uitofp";
+			
+		} else if(opcode == Instruction::SIToFP) {
+			ss << "sitofp";
+		
+		} else if(opcode == Instruction::FPTrunc) {
+			ss << "fptrunc";
+		
 		} else {
-			errs()<<"Invalid float conversion arguments\n";
-			errs()<<"  in: "<<in<<"\n";
-			errs()<<"  out: "<<out<<"\n";
+			errs() << "Invalid float conversion arguments\n";
+			errs() << "  opcode: " << opcode << "\n";
+			
+			errs() << "  in: ";
+			in->print(errs());
+			errs() << "\n";
+			
+			errs() << "  out: ";
+			out->print(errs());
+			errs() << "\n";
+			
 			abort();
 		}
 
@@ -646,14 +651,20 @@ struct StabilizerPass : public ModulePass {
 			Instruction *r;
 
 			// Insert the required conversion instruction
-			if(is_signed && in->isIntegerTy()) {
-				r = new SIToFPInst(&*f->arg_begin(), out, "", b);
-			} else if(is_signed && out->isIntegerTy()) {
-				r = new FPToSIInst(&*f->arg_begin(), out, "", b);
-			} else if(!is_signed && in->isIntegerTy()) {
-				r = new UIToFPInst(&*f->arg_begin(), out, "", b);
-			} else {
+			if(opcode == Instruction::FPToUI) {
 				r = new FPToUIInst(&*f->arg_begin(), out, "", b);
+
+			} else if(opcode == Instruction::FPToSI) {
+				r = new FPToSIInst(&*f->arg_begin(), out, "", b);
+
+			} else if(opcode == Instruction::UIToFP) {
+				r = new UIToFPInst(&*f->arg_begin(), out, "", b);
+
+			} else if(opcode == Instruction::SIToFP) {
+				r = new SIToFPInst(&*f->arg_begin(), out, "", b);
+				
+			} else if(opcode == Instruction::FPTrunc) {
+				r = new FPTruncInst(&*f->arg_begin(), out, "", b);
 			}
 
 			ReturnInst::Create(m.getContext(), r, b);
