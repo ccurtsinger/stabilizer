@@ -260,7 +260,12 @@ struct StabilizerPass : public ModulePass {
 	}
 	
 	/**
+	 * \brief Randomize the program stack on each function call
+	 * Adds a random pad (obtained from the Stabilizer runtime) to the stack
+	 * pointer prior to each function call, then restores the stack after the call.
 	 * 
+	 * \arg m The module being transformed
+	 * \arg f The function being transformed
 	 */
 	void randomizeStack(Module& m, llvm::Function& f) {
 		Function* stacksave = Intrinsic::getDeclaration(&m, Intrinsic::stacksave);
@@ -301,32 +306,6 @@ struct StabilizerPass : public ModulePass {
 			oldStackArgs.push_back(oldStack);
 			CallInst::Create(stackrestore, oldStackArgs, "", next);
 		}
-		
-		/*BasicBlock& entry = f.getEntryBlock();
-		Instruction* insertion_point = entry.getFirstNonPHI();
-			
-		CallInst* oldStack = CallInst::Create(stacksave, "", insertion_point);
-		PtrToIntInst* oldStackInt = new PtrToIntInst(oldStack, Type::getInt64Ty(m.getContext()), "", insertion_point);
-		
-		CallInst* padSize = CallInst::Create(stackPadding, "", insertion_point);
-		
-		BinaryOperator* newStackInt = BinaryOperator::CreateSub(oldStackInt, padSize, "", insertion_point);
-		IntToPtrInst* newStack = new IntToPtrInst(newStackInt, Type::getInt8PtrTy(m.getContext()), "", insertion_point);
-		
-		vector<Value*> newStackArgs;
-		newStackArgs.push_back(newStack);
-		CallInst::Create(stackrestore, newStackArgs, "", insertion_point);
-		
-		for(Function::iterator b_iter = f.begin(); b_iter != f.end(); b_iter++) {
-			BasicBlock& b = *b_iter;
-			
-			Instruction* terminator = b.getTerminator();
-			if(isa<ReturnInst>(terminator)) {
-				vector<Value*> oldStackArgs;
-				oldStackArgs.push_back(oldStack);
-				CallInst::Create(stackrestore, oldStackArgs, "", terminator);
-			}
-		}*/
 	}
 	
 	/**
