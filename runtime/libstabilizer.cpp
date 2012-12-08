@@ -1,6 +1,7 @@
 #include <set>
 #include <vector>
 #include <math.h>
+#include <stdlib.h>
 
 #include "Function.h"
 
