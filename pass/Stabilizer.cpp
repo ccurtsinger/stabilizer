@@ -75,6 +75,19 @@ struct StabilizerPass : public ModulePass {
 	}
 	
 	/**
+	 * \brief Get the intptr_t type for the given platform
+	 * \arg m The module being transformed
+	 * \returns The width of a pointer in bits
+	 */
+	Type* getIntptrType(Module& m) {
+		if(m.getPointerSize() == Module::Pointer32) {
+			return Type::getInt32Ty(m.getContext());
+		} else {
+			return Type::getInt64Ty(m.getContext());
+		}
+	}
+	
+	/**
 	 * \brief Check if the target platform uses PC-relative addressing for data
 	 * \arg m The module being transformed
 	 * \returns true if the platform supports PC-relative data addressing modes
@@ -291,7 +304,7 @@ struct StabilizerPass : public ModulePass {
 			Instruction* next = c->getNextNode();
 			
 			CallInst* oldStack = CallInst::Create(stacksave, "", c);
-			PtrToIntInst* oldStackInt = new PtrToIntInst(oldStack, Type::getInt64Ty(m.getContext()), "", c);
+			PtrToIntInst* oldStackInt = new PtrToIntInst(oldStack, getIntptrType(m), "", c);
 
 			CallInst* padSize = CallInst::Create(stackPadding, "", c);
 
@@ -350,9 +363,10 @@ struct StabilizerPass : public ModulePass {
 		}
 		
 		// Replace some floating point operations with calls to un-randomized functions
-		if(isDataPCRelative(m)) {
+		//if(isDataPCRelative(m)) {
+			// Always do this--required on PowerPC
 			extractFloatOperations(f);
-		}
+		//}
 		
 		// Collect all the referenced global values in this function
 		map<Constant*, set<Use*> > references = findPCRelativeUses(f);
@@ -899,7 +913,7 @@ struct StabilizerPass : public ModulePass {
 		
 		// Declare the stack_padding runtime function
 		stackPadding = Function::Create(
-			TypeBuilder<i<64>(), true>::get(m.getContext()),
+			FunctionType::get(getIntptrType(m), false),
 			Function::ExternalLinkage,
 			"stabilizer_stack_padding",
 			&m
