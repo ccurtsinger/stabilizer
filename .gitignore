@@ -15,4 +15,7 @@ tests/HelloWorld/hello
 tests/libquantum/obj
 tests/libquantum/libquantum
 
+tests/bzip2/obj
+tests/bzip2/bzip2
+
 nbproject

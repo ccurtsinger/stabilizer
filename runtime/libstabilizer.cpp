@@ -2,6 +2,14 @@
 #include <vector>
 #include <math.h>
 
+#include "shuffleheap.h"
+#include "largeheap.h"
+#include "combineheap.h"
+#include "diehardheap.h"
+#include "heaplayers.h"
+
+#include "TLSFLayer.hpp"
+
 #include "Function.h"
 
 using namespace std;
@@ -12,6 +20,22 @@ typedef void(*ctor_t)();
 
 set<Function*> functions;
 vector<ctor_t> constructors;
+
+enum {
+	DataShuffle = 256,
+	DataProt = PROT_READ | PROT_WRITE,
+	DataFlags = MAP_PRIVATE | MAP_ANONYMOUS,
+	DataSize = 0x200000
+};
+
+typedef TLSFLayer<DataSize, DataProt, DataFlags> DataTLSF;
+typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, DataTLSF>, DataTLSF > > DataHeapType;
+
+inline static DataHeapType* getDataHeap() {
+	static char buf[sizeof(DataHeapType)];
+	static DataHeapType* _theDataHeap = new (buf) DataHeapType;
+	return _theDataHeap;
+}
 
 extern "C" {
 	void stabilizer_register_function(void* base, void* limit, 
@@ -30,19 +54,19 @@ extern "C" {
 	}
 
 	void* stabilizer_malloc(size_t sz) {
-		return malloc(sz);
+		return getDataHeap()->malloc(sz);
 	}
 	
 	void* stabilizer_calloc(size_t n, size_t sz) {
-		return calloc(n, sz);
+		return getDataHeap()->calloc(n, sz);
 	}
 
 	void* stabilizer_realloc(void *p, size_t sz) {
-		return realloc(p, sz);
+		return getDataHeap()->realloc(p, sz);
 	}
 
 	void stabilizer_free(void *p) {
-		free(p);
+		getDataHeap()->free(p);
 	}
 	
 	void reportDoubleFreeError() {
