@@ -24,7 +24,7 @@ vector<ctor_t> constructors;
 
 bool rerandomizing = false;
 size_t interval = 500;
-size_t relocationStep = 0;
+size_t relocationStep = 1;
 
 void** topFrame = NULL;
 
