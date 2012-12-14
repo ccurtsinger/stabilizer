@@ -49,6 +49,11 @@ struct X86Jump64 {
 } __attribute__((packed));
 
 struct Jump {
+	union {
+		uint8_t jmp32[sizeof(X86Jump32)];
+		uint8_t jmp64[sizeof(X86Jump64)];
+	};
+	
 	Jump(void *target) {
 		if((uintptr_t)target - (uintptr_t)this <= 0x00000000FFFFFFFFu || (uintptr_t)this - (uintptr_t)target <= 0x00000000FFFFFFFFu) {
 			new(this) X86Jump32(target);
@@ -56,7 +61,6 @@ struct Jump {
 			new(this) X86Jump64(target);
 		}
 	}
-
 } __attribute__((packed));
 
 #endif

@@ -27,11 +27,13 @@
 #if defined(__APPLE__)
 
 	#define GET_CONTEXT_IP(x) (((ucontext_t*)x)->uc_mcontext->__ss.__rip)
+	#define GET_CONTEXT_FP(x) (((ucontext_t*)x)->uc_mcontext->__ss.__rbp)
 	#define SET_CONTEXT_IP(x, y) ((((ucontext_t*)x)->uc_mcontext->__ss.__rip) = (y))
 
 #elif defined(__linux__)
 
 	#define GET_CONTEXT_IP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP])
+	#define GET_CONTEXT_FP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RBP])
 	#define SET_CONTEXT_IP(x, y) ((((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP]) = (y))
 
 #endif
@@ -49,6 +51,14 @@ static void flush_icache(void* begin, size_t size) {
     asm("isync");
 #endif
 }
+
+#if defined(PPC)
+// TODO: define TRAP here
+#elif defined(__i386__)
+#define TRAP ((void*)0x000000CC)
+#elif defined(__x86_64__)
+#define TRAP ((void*)0x00000000000000CC)
+#endif
 
 #ifndef NDEBUG
 #include <stdio.h>
