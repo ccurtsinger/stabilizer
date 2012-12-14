@@ -1,7 +1,6 @@
 ROOT = ..
 
 TARGETS = $(ROOT)/libstabilizer.$(SHLIB_SUFFIX)
-LIBS = 
 INCLUDE_DIRS = $(ROOT)/Heap-Layers \
     $(ROOT)/DieHard/src/include \
     $(ROOT)/DieHard/src/include/math \
@@ -11,5 +10,5 @@ INCLUDE_DIRS = $(ROOT)/Heap-Layers \
 
 include $(ROOT)/common.mk
 
-CFLAGS += -DNDEBUG
-CXXFLAGS += -DNDEBUG
+CFLAGS += -DNDEBUG -O3 -msse3
+CXXFLAGS += -DNDEBUG -O3 -msse3

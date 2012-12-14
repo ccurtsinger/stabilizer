@@ -7,7 +7,6 @@
 #include "Util.h"
 #include "Jump.h"
 #include "Heap.h"
-#include "FunctionLocation.h"
 
 union FunctionHeader {
 	uint8_t jmp[sizeof(Jump)];
@@ -32,8 +31,8 @@ private:
 	
 	size_t _lastRelocation;	//< The step number for this function's last relocation
 	
-	FunctionLocation* _oldLocation;
-	FunctionLocation* _currentLocation;
+	void* _oldLocation;
+	void* _currentLocation;
 	
 	/**
 	 * \brief Place a jump instruction to forward calls to this function
@@ -47,6 +46,14 @@ private:
 	}
 	
 public:
+	void* operator new(size_t sz) {
+		return getDataHeap()->malloc(sz);
+	}
+	
+	void operator delete(void* p) {
+		getDataHeap()->free(p);
+	}
+	
 	/**
 	* \brief Create a new runtime representation of a function
 	* \arg codeBase The address of the function
@@ -101,7 +108,7 @@ public:
 
 			} else {
 				// Copy the code and table (if any) from the previous location
-				memcpy(newBase, _currentLocation->getCodeBase(), getAllocationSize());
+				memcpy(newBase, _currentLocation, getAllocationSize());
 
 				// Save the old location
 				_oldLocation = _currentLocation;
@@ -111,7 +118,7 @@ public:
 			flush_icache(newBase, _codeSize);
 
 			// Record the current location
-			_currentLocation = new FunctionLocation(this, newBase);
+			_currentLocation = newBase;
 
 			// Redirect the original function to the new location
 			forward(newBase);
@@ -142,26 +149,26 @@ public:
 			return false;
 		}
 
-		intptr_t offset;
+		uintptr_t offset;
 		
 		if(_oldLocation != NULL) {
-			offset = _oldLocation->getOffset(*p);
-			if(offset >= 0 && offset < getCodeSize()) {
+			offset = (uintptr_t)*p - (uintptr_t)_oldLocation;
+			if(offset < getCodeSize()) {
 				assert(_lastRelocation == relocation && "Clean up your mess!");
 
 				// Pointer needs to be updated
-				*p = (void*)((uintptr_t)_currentLocation->getCodeBase() + offset);
+				*p = (void*)((uintptr_t)_currentLocation + offset);
 
 				return true;
 			}
 		}
 		
-		offset = _currentLocation->getOffset(*p);
-		if(offset >= 0 && offset < getCodeSize()) {
+		offset = (uintptr_t)*p - (uintptr_t)_currentLocation;
+		if(offset < getCodeSize()) {
 			// Match!  See if a relocation is required
 			if(relocate(relocation)) {
 				// Pointer needs to be updated
-				*p = (void*)((uintptr_t)_currentLocation->getCodeBase() + offset);
+				*p = (void*)((uintptr_t)_currentLocation + offset);
 			}
 
 			return true;
@@ -178,7 +185,7 @@ public:
 	 */
 	inline void cleanup() {
 		if(_oldLocation != NULL) {
-			delete _oldLocation;
+			getCodeHeap()->free(_oldLocation);
 			_oldLocation = NULL;
 		}
 	}	

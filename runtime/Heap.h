@@ -10,12 +10,12 @@ enum {
 	DataShuffle = 256,
 	DataProt = PROT_READ | PROT_WRITE,
 	DataFlags = MAP_PRIVATE | MAP_ANONYMOUS,
-	DataSize = 0x200000,
+	DataSize = 0x2000000,
 	
 	CodeShuffle = 256,
 	CodeProt = PROT_READ | PROT_WRITE | PROT_EXEC,
 	CodeFlags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT,
-	CodeSize = 0x200000
+	CodeSize = 0x2000000
 };
 
 #if defined(USE_TLSF)
@@ -27,15 +27,24 @@ enum {
 	
 	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, DataTLSF>, DataTLSF > > DataHeapType;
 	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, CodeTLSF>, CodeTLSF > > CodeHeapType;
+	
 #else
 	
 #define HL_EXECUTABLE_HEAP 1
 	
-	class DataSource : public BumpAlloc<DataSize, MmapHeap, 16> {};
-	class CodeSource : public BumpAlloc<CodeSize, MmapHeap, 32> {};
+	class DataSource : public OneHeap<BumpAlloc<DataSize, MmapHeap, 16> > {
+	public:
+		enum { Alignment = 16 };
+	};
+	
+	class CodeSource : public OneHeap<BumpAlloc<CodeSize, MmapHeap, 64> > {
+	public:
+		enum { Alignment = 64 };
+	};
 	
 	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, SizeHeap<FreelistHeap<DataSource> > >, SizeHeap<DataSource> > > DataHeapType;
 	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<CodeShuffle, SizeHeap<FreelistHeap<CodeSource> > >, SizeHeap<CodeSource> > > CodeHeapType;
+
 #endif
 	
 inline static DataHeapType* getDataHeap() {

@@ -903,6 +903,8 @@ struct StabilizerPass : public ModulePass {
 			 &m
 		);
 		
+		registerFunction->addFnAttr(Attribute::NonLazyBind);
+		
 		// Declare the register_constructor runtime function
 		registerConstructor = Function::Create(
 			TypeBuilder<void(void()), true>::get(m.getContext()),
@@ -911,6 +913,8 @@ struct StabilizerPass : public ModulePass {
 			&m
 		);
 		
+		registerConstructor->addFnAttr(Attribute::NonLazyBind);
+		
 		// Declare the stack_padding runtime function
 		stackPadding = Function::Create(
 			FunctionType::get(getIntptrType(m), false),
@@ -918,6 +922,8 @@ struct StabilizerPass : public ModulePass {
 			"stabilizer_stack_padding",
 			&m
 		);
+		
+		stackPadding->addFnAttr(Attribute::NonLazyBind);
 	}
 };
 

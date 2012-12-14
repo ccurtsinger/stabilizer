@@ -18,6 +18,8 @@ void set_timer(int msec);
 typedef void(*ctor_t)();
 
 set<Function*> functions;
+set<Function*> live_functions;
+
 vector<ctor_t> constructors;
 
 bool rerandomizing = false;
@@ -25,6 +27,10 @@ size_t interval = 500;
 size_t relocationStep = 0;
 
 void** topFrame = NULL;
+
+enum {
+	StackAlignment = 16
+};
 
 extern "C" {
 	void stabilizer_register_function(void* base, void* limit, 
@@ -39,7 +45,7 @@ extern "C" {
 	}
 	
 	uintptr_t stabilizer_stack_padding() {
-		return 16 * (rand() % 4096);
+		return StackAlignment * (rand() % (PAGESIZE/StackAlignment));
 	}
 
 	void* stabilizer_malloc(size_t sz) {
@@ -69,16 +75,23 @@ extern "C" {
 	void stabilizer_ready() {}
 }
 
-void walk_stack(void** fp) {
+inline set<Function*> walk_stack(void** fp) {
+	set<Function*> new_live_functions;
+	
 	while(fp != topFrame) {
 		bool relocated = false;
-		for(set<Function*>::iterator iter = functions.begin(); iter != functions.end() && !relocated; iter++) {
+		for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end() && !relocated; iter++) {
 			Function* f = *iter;
-			relocated |= f->update(relocationStep, &fp[1]);
+			if(f->update(relocationStep, &fp[1])) {
+				new_live_functions.insert(f);
+				relocated = true;
+			}
 		}
 		
 		fp = (void**)fp[0];
 	}
+	
+	return new_live_functions;
 }
 
 void trap(int sig, siginfo_t* info, void* c) {
@@ -88,15 +101,17 @@ void trap(int sig, siginfo_t* info, void* c) {
 	// If the trap was placed to trigger a re-randomization
 	if(rerandomizing) {
 		// Update code pointers on the stack
-		walk_stack((void**)GET_CONTEXT_FP(c));
+		set<Function*> new_live_functions = walk_stack((void**)GET_CONTEXT_FP(c));
 		
 		// TODO: Update the link register on PowerPC
 		
 		// Clean up all old code locations
-		for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
+		for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end(); iter++) {
 			Function* f = *iter;
 			f->cleanup();
 		}
+		
+		live_functions = new_live_functions;
 		
 		rerandomizing = false;
 		set_timer(interval);
@@ -106,14 +121,18 @@ void trap(int sig, siginfo_t* info, void* c) {
 	void** p = (void**)GET_CONTEXT_IP(c);
 	Function* f = (Function*)p[1];
 	
+	live_functions.insert(f);
+	
 	// Relocate the function
 	f->relocate(relocationStep);
+	
+	SET_CONTEXT_IP(c, (uintptr_t)f->getCodeBase());
 }
 
 void timer(int sig, siginfo_t* info, void* c) {
 	relocationStep++;
 	
-	for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
+	for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end(); iter++) {
 		Function* f = *iter;
 		f->setTrap();
 	}
