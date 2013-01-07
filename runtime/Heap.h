@@ -22,30 +22,20 @@ enum {
 
 #include "TLSFLayer.hpp"
 
-	typedef TLSFLayer<DataSize, DataProt, DataFlags> DataTLSF;
-	typedef TLSFLayer<CodeSize, CodeProt, CodeFlags> CodeTLSF;
-	
-	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, DataTLSF>, DataTLSF > > DataHeapType;
-	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, CodeTLSF>, CodeTLSF > > CodeHeapType;
-	
+	typedef TLSFLayer<DataSize, DataProt, DataFlags> DataSource;
+	typedef TLSFLayer<CodeSize, CodeProt, CodeFlags> CodeSource;
+
 #else
 	
 #define HL_EXECUTABLE_HEAP 1
 	
-	class DataSource : public OneHeap<BumpAlloc<DataSize, MmapHeap, 16> > {
-	public:
-		enum { Alignment = 16 };
-	};
+	class DataSource : public OneHeap<BumpAlloc<DataSize, PrivateMmapHeap, 16> > {};
+	class CodeSource : public OneHeap<BumpAlloc<CodeSize, PrivateMmapHeap, 64> > {};
 	
-	class CodeSource : public OneHeap<BumpAlloc<CodeSize, MmapHeap, 64> > {
-	public:
-		enum { Alignment = 64 };
-	};
-	
-	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, SizeHeap<FreelistHeap<DataSource> > >, SizeHeap<DataSource> > > DataHeapType;
-	typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<CodeShuffle, SizeHeap<FreelistHeap<CodeSource> > >, SizeHeap<CodeSource> > > CodeHeapType;
-
 #endif
+	
+typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, SizeHeap<FreelistHeap<DataSource> > >, SizeHeap<DataSource> > > DataHeapType;
+typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<CodeShuffle, SizeHeap<FreelistHeap<CodeSource> > >, SizeHeap<CodeSource> > > CodeHeapType;
 	
 inline static DataHeapType* getDataHeap() {
 	static char buf[sizeof(DataHeapType)];

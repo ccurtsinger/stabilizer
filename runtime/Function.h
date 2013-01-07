@@ -46,13 +46,21 @@ private:
 	}
 	
 public:
-	void* operator new(size_t sz) {
-		return getDataHeap()->malloc(sz);
-	}
+	/**
+	 * \brief Allocate Function objects on the randomized heap
+	 * \arg sz The object size
+	 */
+	//void* operator new(size_t sz) {
+	//	return getDataHeap()->malloc(sz);
+	//}
 	
-	void operator delete(void* p) {
-		getDataHeap()->free(p);
-	}
+	/**
+	 * \brief Free allocated memory to the randomized heap
+	 * \arg p The object base pointer
+	 */
+	//void operator delete(void* p) {
+	//	getDataHeap()->free(p);
+	//}
 	
 	/**
 	* \brief Create a new runtime representation of a function
@@ -76,9 +84,31 @@ public:
 		_savedHeader = *(FunctionHeader*)codeBase;
 
 		// Make the function header writable
-		if(mprotect(ALIGN_DOWN(_codeBase, PAGESIZE), 2*PAGESIZE, PROT_READ | PROT_WRITE | PROT_EXEC)) {
+		if(mprotect(ALIGN_DOWN(_codeBase, PAGESIZE), PAGESIZE + (size_t)ALIGN_UP(_codeSize, PAGESIZE), PROT_READ | PROT_WRITE | PROT_EXEC)) {
 			perror("Unable make code writable");
 			abort();
+		}
+	}
+	
+	/**
+	 * \brief Free all code locations when deleted
+	 */
+	inline ~Function() {
+		if(_currentLocation != NULL) {
+			//getCodeHeap()->free(_currentLocation);
+		}
+		
+		if(_oldLocation != NULL) {
+			//getCodeHeap()->free(_oldLocation);
+		}
+	}
+	
+	inline void selfCheck() {
+		if(_currentLocation != NULL && _tableAdjacent) {
+			uint8_t* p = (uint8_t*)_currentLocation;
+			for(size_t i=0; i<_tableSize; i++) {
+				assert(p[_codeSize+i] == ((uint8_t*)_tableBase)[i]);
+			}
 		}
 	}
 	
@@ -91,12 +121,19 @@ public:
 	inline bool relocate(size_t relocation) {
 		if(relocation > _lastRelocation) {
 			// Allocate space for the new location
-			uint8_t* newBase = (uint8_t*)getCodeHeap()->malloc(getAllocationSize());
-
+			//uint8_t* newBase = (uint8_t*)getCodeHeap()->malloc(getAllocationSize());
+			uint8_t* newBase = (uint8_t*)mmap(NULL, (size_t)ALIGN_UP(getAllocationSize(), PAGESIZE), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+			
+			if(newBase == NULL) {
+				perror("mmap");
+				abort();
+			}
+			
 			// If the function hasn't been relocated yet, build the relocated code from parts
 			if(_currentLocation == NULL) {
 				// Copy the code from the original function
 				memcpy(newBase, _codeBase, _codeSize);
+				memset(_codeBase, 0xCCCCCCCC, _codeSize);
 
 				// Patch in the saved header, since the original has been overwritten
 				*(FunctionHeader*)newBase = _savedHeader;
@@ -121,7 +158,7 @@ public:
 			_currentLocation = newBase;
 
 			// Redirect the original function to the new location
-			forward(newBase);
+			forward(_currentLocation);
 
 			// Update the last-relocated counter
 			_lastRelocation = relocation;
@@ -151,6 +188,17 @@ public:
 
 		uintptr_t offset;
 		
+		offset = (uintptr_t)*p - (uintptr_t)_currentLocation;
+		if(offset < getCodeSize()) {
+			// Match!  See if a relocation is required
+			if(relocate(relocation)) {
+				// Pointer needs to be updated
+				*p = (void*)((uintptr_t)_currentLocation + offset);
+			}
+
+			return true;
+		}
+		
 		if(_oldLocation != NULL) {
 			offset = (uintptr_t)*p - (uintptr_t)_oldLocation;
 			if(offset < getCodeSize()) {
@@ -161,17 +209,6 @@ public:
 
 				return true;
 			}
-		}
-		
-		offset = (uintptr_t)*p - (uintptr_t)_currentLocation;
-		if(offset < getCodeSize()) {
-			// Match!  See if a relocation is required
-			if(relocate(relocation)) {
-				// Pointer needs to be updated
-				*p = (void*)((uintptr_t)_currentLocation + offset);
-			}
-
-			return true;
 		}
 
 		return false;
@@ -185,8 +222,13 @@ public:
 	 */
 	inline void cleanup() {
 		if(_oldLocation != NULL) {
-			getCodeHeap()->free(_oldLocation);
-			_oldLocation = NULL;
+			mprotect(_oldLocation, (size_t)ALIGN_UP(getAllocationSize(), PAGESIZE), PROT_NONE);
+			
+			//memset(_oldLocation, 0xCCCCCCCC, getCodeSize());
+			//memset(&((uint8_t*)_oldLocation)[getCodeSize()], 0, _tableSize);
+			
+			//getCodeHeap()->free(_oldLocation);
+			//_oldLocation = NULL;
 		}
 	}	
 	
@@ -217,6 +259,14 @@ public:
 		} else {
 			return _codeSize;
 		}
+	}
+	
+	inline void* getCurrentLocation() {
+		return _currentLocation;
+	}
+	
+	inline void* getOldLocation() {
+		return _oldLocation;
 	}
 };
 

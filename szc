@@ -46,20 +46,14 @@ else:
 
 opts = []
 
-opts.append('lower-intrinsics')
-opts.append('lowerswitch')
-
 args.l.append('stdc++')
 args.f.append('PIC')
 args.f.append('no-omit-frame-pointer')
 #args.v = True
 
-if args.coderand or args.stackrand or args.heaprand or args.globrand:
-	args.L.append(STABILIZER_HOME)
-	args.l.append('stabilizer')
-	opts.append('stabilize')
-
 if args.coderand:
+	opts.append('lower-intrinsics')
+	opts.append('lowerswitch')
 	opts.append('stabilize-code')
 
 if args.stackrand:
@@ -70,6 +64,11 @@ if args.heaprand:
 
 if args.globrand:
 	opts.append('stabilize-globals')
+
+if args.coderand or args.stackrand or args.heaprand or args.globrand:
+	args.L.append(STABILIZER_HOME)
+	args.l.append('stabilizer')
+	opts.append('stabilize')
 
 def compile(i, args, verbose=False):
 	if i.endswith('.o') or i.endswith('.bc'):
@@ -118,7 +117,8 @@ def transform(i, args, verbose=False):
 		
 	cmd += ' -o='+args.o+'.opt.bc'
 
-	cmd += ' -O'+str(args.O)
+	if args.O > 0:
+		cmd += ' -O'+str(args.O)
 
 	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.'+LIBSUFFIX
 

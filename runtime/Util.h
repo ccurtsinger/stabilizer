@@ -28,12 +28,15 @@
 
 	#define GET_CONTEXT_IP(x) (((ucontext_t*)x)->uc_mcontext->__ss.__rip)
 	#define GET_CONTEXT_FP(x) (((ucontext_t*)x)->uc_mcontext->__ss.__rbp)
+	#define GET_CONTEXT_SP(x) (((ucontext_t*)x)->uc_mcontext->__ss.__rsp)
 	#define SET_CONTEXT_IP(x, y) ((((ucontext_t*)x)->uc_mcontext->__ss.__rip) = (y))
 
 #elif defined(__linux__)
 
 	#define GET_CONTEXT_IP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP])
 	#define GET_CONTEXT_FP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RBP])
+	#define GET_CONTEXT_SP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RSP])
+
 	#define SET_CONTEXT_IP(x, y) ((((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP]) = (y))
 
 #endif

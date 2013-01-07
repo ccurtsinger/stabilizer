@@ -452,17 +452,7 @@ struct StabilizerPass : public ModulePass {
 						insertion_point
 					);
 					
-					if(isa<PHINode>(u->getUser())) {
-						PHINode* phi = dyn_cast<PHINode>(u->getUser());
-						BasicBlock* incoming = phi->getIncomingBlock(*u);
-						while(phi->getBasicBlockIndex(incoming) != -1) {
-							phi->removeIncomingValue(incoming, false);
-						}
-						phi->addIncoming(loaded, incoming);
-						
-					} else {
-						u->set(loaded);
-					}
+					u->set(loaded);
 				}
 				
 				index++;
@@ -690,17 +680,7 @@ struct StabilizerPass : public ModulePass {
 
 								LoadInst* load = new LoadInst(g, "fconst.load", insertion_point);
 
-								if(isa<PHINode>(&i)) {
-									PHINode* phi = dyn_cast<PHINode>(op_iter->getUser());
-									BasicBlock* incoming = phi->getIncomingBlock(*op_iter);
-									while(phi->getBasicBlockIndex(incoming) != -1) {
-										phi->removeIncomingValue(incoming, false);
-									}
-									phi->addIncoming(load, incoming);
-
-								} else {
-									op_iter->set(load);
-								}
+								op_iter->set(load);
 							}
 						}
 					}
