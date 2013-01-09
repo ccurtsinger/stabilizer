@@ -1,0 +1,8 @@
+New message #535: 24 headers (1 Received:), 676 body lines
+New message #534: 13 headers (6 Received:), 172 body lines
+New message #533: 19 headers (11 Received:), 926 body lines
+New message #532: 22 headers (7 Received:), 148 body lines
+New message #531: 14 headers (7 Received:), 930 body lines
+New message #530: 23 headers (5 Received:), 71 body lines
+New message #529: 24 headers (11 Received:), 75 body lines
+New message #528: 15 headers (4 Received:), 1045 body lines
