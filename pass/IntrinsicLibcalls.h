@@ -37,9 +37,13 @@ void InitLibcalls() {
 	inlined.insert("llvm.trap");
 	
 	inlined.insert("llvm.uadd.with.overflow.i64");
+	inlined.insert("llvm.umul.with.overflow.i64");
 	
 	inlined.insert("llvm.eh.exception");
 	inlined.insert("llvm.eh.selector");
+
+	inlined.insert("llvm.lifetime.start");
+	inlined.insert("llvm.lifetime.end");
 
 	libcall_map["llvm.memcpy.p0i8.p0i8.i8"]	=  "memcpy";
 	libcall_map["llvm.memcpy.p0i8.p0i8.i16"] = "memcpy";

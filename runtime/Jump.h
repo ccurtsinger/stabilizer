@@ -1,7 +1,8 @@
-#include <new>
-
 #ifndef RUNTIME_JUMP_H
 #define RUNTIME_JUMP_H
+
+#include <new>
+#include <stdint.h>
 
 struct X86Jump32 {
 	volatile uint8_t jmp_opcode;
@@ -48,6 +49,11 @@ struct X86Jump64 {
 } __attribute__((packed));
 
 struct Jump {
+	union {
+		uint8_t jmp32[sizeof(X86Jump32)];
+		uint8_t jmp64[sizeof(X86Jump64)];
+	};
+	
 	Jump(void *target) {
 		if((uintptr_t)target - (uintptr_t)this <= 0x00000000FFFFFFFFu || (uintptr_t)this - (uintptr_t)target <= 0x00000000FFFFFFFFu) {
 			new(this) X86Jump32(target);
@@ -55,23 +61,23 @@ struct Jump {
 			new(this) X86Jump64(target);
 		}
 	}
-
 } __attribute__((packed));
 
 #endif
 
-#ifdef __POWERPC__
+#ifdef PPC
 
 struct Jump {
-	union{
-		uint32_t ba;
-		struct{
-			volatile uint32_t lis_to_r0;
-			volatile uint32_t ori_r0;
-			volatile uint32_t mtctr;
-			volatile uint32_t bctr;
-		};
-	}__attribute__((packed));
+	union {
+ 		uint32_t ba;
+ 		struct{
+ 			volatile uint32_t lis_to_r0;
+ 			volatile uint32_t ori_r0;
+ 			volatile uint32_t mtctr;
+ 			volatile uint32_t bctr;
+ 		};
+ 	} __attribute__((packed));
+
 	Jump(void *target) {
 		DEBUG("in Jump: ( %s:%d", __FILE__, __LINE__);
 		uintptr_t t = (uintptr_t)target;
@@ -93,11 +99,11 @@ struct Jump {
 			ba = 0x48000000;
 			ba |= (uint32_t)neg_offset & 0x03FFFFFC;
 		} else {
-			DEBUG("  jump target is out of range, use jump register\n");
+			//printf("  jump target is out of range\n");
 			lis_to_r0=0x3c000000 | ((t>>16)&0xFFFFu);
-			ori_r0=0x60000000 | (t&0xFFFFu);
-			mtctr=0x7c0903a6;
-			bctr=0x4e800420;
+ 			ori_r0=0x60000000 | (t&0xFFFFu);
+ 			mtctr=0x7c0903a6;
+ 			bctr=0x4e800420;
 		}
 	}
 } __attribute__((packed));

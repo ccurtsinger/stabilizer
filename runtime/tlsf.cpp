@@ -53,7 +53,7 @@
 /*#define USE_MMAP        (0) */
 
 #ifndef USE_PRINTF
-#define USE_PRINTF      (1)
+#define USE_PRINTF      (0)
 #endif
 
 #include <string.h>

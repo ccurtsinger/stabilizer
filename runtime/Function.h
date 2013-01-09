@@ -1,109 +1,204 @@
-//
-//  Function.h
-//  stabilizer2
-//
-//  Created by Charlie Curtsinger on 9/13/11.
-//  Copyright 2011 University of Massachusetts. All rights reserved.
-//
+#if !defined(RUNTIME_FUNCTION_H)
+#define RUNTIME_FUNCTION_H
 
-#ifndef stabilizer2_Function_h
-#define stabilizer2_Function_h
-
-#include <stdio.h>
+#include <string.h>
 #include <sys/mman.h>
-#include <stdint.h>
 
-#include "Metadata.h"
-#include "Global.h"
-#include "Heaps.h"
+#include "Util.h"
+#include "Jump.h"
+#include "Heap.h"
+#include "Pile.h"
 
-#include "list.h"
-
-using namespace std;
-
-namespace stabilizer {
-
-	class Function;
-	class FunctionLocation;
-
-	struct fn_info {
-		char *name;
-		void *base;
-		void *limit;
-		void **refs;
-	};
-
-	struct fn_header {
-		uint8_t breakpoint;
-		uint8_t pad[63];
-		Function *obj;
-	};
-
-	class Function : public Metadata {
-	private:
-		char *name;
-		void *base;
-		void *limit;
-		size_t relocated_count;
-
-		struct fn_header header;
-
-		list<void*> refs;
-		FunctionLocation *current_location;
-
-	public:
-		Function(struct fn_info *info);
-		FunctionLocation* relocate();
+union FunctionHeader {
+	uint8_t jmp[sizeof(Jump)];
 	
-		size_t relocatedCount() {
-			return relocated_count;
-		}
+	struct {
+		void* trap;
+		void* obj;
+	};
+};
 
-		void resetRelocatedCount() {
-			relocated_count = 0;
-		}
+struct Function {
+private:
+	void* _codeBase;		//< The address of the function
+	size_t _codeSize;		//< The size of the function (code only)
 	
-		void placeBreakpoint() {
-			struct fn_header *h = (struct fn_header*)base;
-			header = *h;
+	void* _tableBase;		//< The address of this function's relocation table
+	size_t _tableSize;		//< The size of this function's relocation table
+	bool _tableAdjacent;	//< If true, the relocation table should be placed next to the function
+	
+	FunctionHeader _savedHeader;	//< The original contents of the function header
+	bool _trapped;			//< If true, the function will trap when called
+	
+	size_t _lastRelocation;	//< The step number for this function's last relocation
+	
+	void* _currentLocation;	//< The current location of this function
+	
+	/**
+	 * \brief Place a jump instruction to forward calls to this function
+	 * \arg target The destination of the jump instruction
+	 */
+	inline void forward(void* target) {
+		new(getCodeBase()) Jump(target);
+		flush_icache(getCodeBase(), sizeof(Jump));
+
+		_trapped = false;
+	}
+	
+public:
+	/**
+	 * \brief Allocate Function objects on the randomized heap
+	 * \arg sz The object size
+	 */
+	void* operator new(size_t sz) {
+		return getDataHeap()->malloc(sz);
+	}
+	
+	/**
+	 * \brief Free allocated memory to the randomized heap
+	 * \arg p The object base pointer
+	 */
+	void operator delete(void* p) {
+		getDataHeap()->free(p);
+	}
+	
+	/**
+	* \brief Create a new runtime representation of a function
+	* \arg codeBase The address of the function
+	* \arg codeLimit The top of the function
+	* \arg tableBase The address of the function's relocation table
+	* \arg tableSize The size of the function's relocation table
+	* \arg tableAdjacent If true, the relocation table should be placed immediately after the function
+	*/
+	inline Function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool tableAdjacent) {
+		this->_codeBase = codeBase;
+		this->_codeSize = (uintptr_t)codeLimit - (uintptr_t)codeBase;
+		this->_tableBase = tableBase;
+		this->_tableSize = tableSize;
+		this->_tableAdjacent = tableAdjacent;
+		this->_lastRelocation = 0;
+		this->_currentLocation = NULL;
+
+		// Make a copy of the function header
+		_savedHeader = *(FunctionHeader*)codeBase;
+
+		// Make the function header writable
+		if(mprotect(ALIGN_DOWN(_codeBase, PAGESIZE), PAGESIZE + (size_t)ALIGN_UP(_codeSize, PAGESIZE), PROT_READ | PROT_WRITE | PROT_EXEC)) {
+			perror("Unable make code writable");
+			abort();
+		}
+	}
+	
+	/**
+	 * \brief Free all code locations when deleted
+	 */
+	inline ~Function() {
+		if(_currentLocation != NULL) {
+			getCodeHeap()->free(_currentLocation);
+		}
+	}
+	
+	/**
+	 * Check the integrity of the current function location
+	 */
+	inline void selfCheck() {
+		if(_currentLocation != NULL && _tableAdjacent) {
+			uint8_t* p = (uint8_t*)_currentLocation;
+			for(size_t i=0; i<_tableSize; i++) {
+				assert(p[_codeSize+i] == ((uint8_t*)_tableBase)[i]);
+			}
+		}
+	}
+	
+	/**
+	* \brief Relocate this function
+	* \arg relocation The global relocation step number.  If this function has already
+	*		been relocated in this step, it will not be relocated again.
+	* \returns True if the function was moved on this call
+	*/
+	inline bool relocate(size_t relocation) {
+		if(relocation > _lastRelocation) {
+			// Allocate space for the new location
+			uint8_t* newBase = (uint8_t*)getCodeHeap()->malloc(getAllocationSize());
 			
-			h->breakpoint = 0xCC;
-			h->obj = this;
+			if(newBase == NULL) {
+				perror("code malloc");
+				abort();
+			}
+			
+			// If the function hasn't been relocated yet, build the relocated code from parts
+			if(_currentLocation == NULL) {
+				// Copy the code from the original function
+				memcpy(newBase, _codeBase, _codeSize);
+
+				// Patch in the saved header, since the original has been overwritten
+				*(FunctionHeader*)newBase = _savedHeader;
+
+				// Copy the relocation table, if needed
+				if(_tableAdjacent) {
+					memcpy(&newBase[_codeSize], _tableBase, _tableSize);
+				}
+
+			} else {
+				// Copy the code and table (if any) from the previous location
+				memcpy(newBase, _currentLocation, getAllocationSize());
+
+				// TODO: Put the old location onto the GC pile
+				//printf("Discarding code location at %p\n", _currentLocation);
+				Pile::add(_currentLocation, getAllocationSize());
+			}
+
+			// Flush the icache at the new function location
+			flush_icache(newBase, _codeSize);
+
+			// Record the current location
+			_currentLocation = newBase;
+
+			// Redirect the original function to the new location
+			forward(_currentLocation);
+
+			// Update the last-relocated counter
+			_lastRelocation = relocation;
+
+			return true;
+
+		} else {
+			return false;
 		}
+	}
 	
-		void restoreHeader() {
-			struct fn_header *h = (struct fn_header*)base;
-			*h = header;
-		}
+	/**
+	 * \brief Place a trap instruction at the beginning of this function
+	 */
+	inline void setTrap() {
+		if(!_trapped) {
+			FunctionHeader* header = (FunctionHeader*)getCodeBase();
+			header->trap = TRAP;
+			header->obj = this;
 
-		char* getName() {
-			return name;
+			_trapped = true;
 		}
-		
-		void* getBase() {
-			return base;
+	}
+	
+	inline void* getCodeBase() {
+		return _codeBase;
+	}
+	
+	inline size_t getCodeSize() {
+		return _codeSize;
+	}
+	
+	inline size_t getAllocationSize() {
+		if(_tableAdjacent) {
+			return _codeSize + _tableSize;
+		} else {
+			return _codeSize;
 		}
-
-		inline size_t getCodeSize() {
-			return (size_t)((uintptr_t)limit - (uintptr_t)base);
-		}
-
-		inline size_t getTableSize() {
-			return sizeof(void*) * (refs.size() + 2);
-		}
-
-		inline size_t getTotalSize() {
-			return getCodeSize() + getTableSize();
-		}
-
-		inline FunctionLocation* getCurrentLocation() {
-			return current_location;
-		}
-		
-		inline list<void*> getRefs() {
-			return refs;
-		}
-	};
-}
+	}
+	
+	inline void* getCurrentLocation() {
+		return _currentLocation;
+	}
+};
 
 #endif

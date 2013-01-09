@@ -23,18 +23,24 @@ extern size_t get_object_size_ex (void * ptr, void * mem_pool);
 
 template<size_t MapSize, int Prot, int Flags>
 struct TLSFLayer {
+private:
+	void* _pool;
+
+public:
 	enum { Alignment = 16 };
 	
-	void* getPool() {
-		static void* pool = NULL;
-		if(pool == NULL) {
-			pool = map();
-			init_memory_pool(MapSize, pool);
+	TLSFLayer() : _pool(NULL) {}
+	
+	inline void* getPool() {
+		if(_pool == NULL) {
+			_pool = map();
+			init_memory_pool(MapSize, _pool);
 		}
-		return pool;
+		
+		return _pool;
 	}
 	
-	static void* map() {
+	static inline void* map() {
 		void* p = mmap(NULL, MapSize, Prot, Flags, -1, 0);
 
 		/*if((Flags & MAP_32BIT) && p == MAP_FAILED) {
@@ -48,14 +54,14 @@ struct TLSFLayer {
 		return p;
 	}
 	
-	void expand(size_t sz) {
+	inline void expand(size_t sz) {
 		size_t heapsize = 0;
 		while(heapsize < sz) {
 			heapsize = add_new_area(map(), MapSize, getPool());
 		}
 	}
 	
-	void* malloc(size_t sz) {
+	inline void* malloc(size_t sz) {
 		void* p = malloc_ex(sz, getPool());
 		if(p == NULL) {
 			expand(sz);
@@ -69,11 +75,11 @@ struct TLSFLayer {
 		return p;
 	}
 	
-	void free(void* p) {
-		//free_ex(p, getPool());
+	inline void free(void* p) {
+		free_ex(p, getPool());
 	}
 	
-	size_t getSize(void* p) {
+	inline size_t getSize(void* p) {
 		return get_object_size_ex(p, getPool());
 	}
 };
