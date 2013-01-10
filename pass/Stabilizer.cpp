@@ -189,13 +189,18 @@ struct StabilizerPass : public ModulePass {
 		// If not found, there aren't any constructors
 		if(ctors != NULL) {
 			// Get the constructor table initializer
-			ConstantArray* table = dyn_cast<ConstantArray>(ctors->getInitializer());
+			Constant* initializer = ctors->getInitializer();
+			if(isa<ConstantArray>(initializer)) {
+				ConstantArray* table = dyn_cast<ConstantArray>(initializer);
 
-			// Get each entry in the table
-			for(ConstantArray::op_iterator i = table->op_begin(); i != table->op_end(); i++) {
-				ConstantStruct* entry = dyn_cast<ConstantStruct>(i->get());
-				Constant* f = entry->getOperand(1);
-				result.push_back(f);
+				// Get each entry in the table
+				for(ConstantArray::op_iterator i = table->op_begin(); i != table->op_end(); i++) {
+					ConstantStruct* entry = dyn_cast<ConstantStruct>(i->get());
+					Constant* f = entry->getOperand(1);
+					result.push_back(f);
+				}
+			} else {
+				// Must be an empty ctor table...
 			}
 		}
 		

@@ -83,7 +83,10 @@ public:
 		_savedHeader = *(FunctionHeader*)codeBase;
 
 		// Make the function header writable
-		if(mprotect(ALIGN_DOWN(_codeBase, PAGESIZE), PAGESIZE + (size_t)ALIGN_UP(_codeSize, PAGESIZE), PROT_READ | PROT_WRITE | PROT_EXEC)) {
+		uintptr_t pageBase = (uintptr_t)ALIGN_DOWN(_codeBase, PAGESIZE);
+		uintptr_t pageLimit = (uintptr_t)ALIGN_UP((uintptr_t)_codeBase + _codeSize, PAGESIZE);
+		
+		if(mprotect((void*)pageBase, pageLimit - pageBase, PROT_READ | PROT_WRITE | PROT_EXEC)) {
 			perror("Unable make code writable");
 			abort();
 		}
