@@ -25,7 +25,6 @@ enum { ALIGN = 64 };
 
 // Randomization configuration options
 opt<bool> stabilize_heap   ("stabilize-heap",    init(false), desc("Randomize heap object placement"));
-opt<bool> stabilize_globals("stabilize-globals", init(false), desc("Randomize global placement"));
 opt<bool> stabilize_stack  ("stabilize-stack",   init(false), desc("Randomize stack frame placement"));
 opt<bool> stabilize_code   ("stabilize-code",    init(false), desc("Randomize function placement"));
 
@@ -577,7 +576,7 @@ struct StabilizerPass : public ModulePass {
 		// Functions are always possible to access with pc-relative instructions
 		for(Module::iterator g_iter = m.begin(); g_iter != m.end(); g_iter++) {
 			Function& g = *g_iter;
-			if(!g.isIntrinsic()) {
+			if(!g.isIntrinsic() && !g.getName().equals("__gxx_personality_v0")) {
 				gvs.insert(&g);
 			}
 		}
