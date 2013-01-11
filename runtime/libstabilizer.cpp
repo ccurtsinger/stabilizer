@@ -18,7 +18,7 @@ extern "C" void stabilizer_ready();
 
 void onTrap(int sig, siginfo_t* info, void* c);
 void onTimer(int sig, siginfo_t* info, void* c);
-void onSegfault(int sig, siginfo_t* info, void* c);
+void onFault(int sig, siginfo_t* info, void* c);
 
 void setTimer(int msec);
 void setHandler(int sig, void(*fn)(int, siginfo_t*, void*));
@@ -55,8 +55,10 @@ int main(int argc, char **argv) {
 	// Register signal handlers
 	setHandler(SIGTRAP, onTrap);
 	setHandler(SIGALRM, onTimer);
-	setHandler(SIGSEGV, onSegfault);
-	setHandler(SIGBUS, onSegfault);
+	setHandler(SIGSEGV, onFault);
+	setHandler(SIGBUS, onFault);
+	setHandler(SIGABRT, onFault);
+	setHandler(SIGILL, onFault);
 	
 	// Lazily relocate functions
 	for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
@@ -93,7 +95,7 @@ extern "C" {
 		Function* f = new Function(base, limit, relocationTable, tableSize, adjacent);
 		functions.insert(f);
 	}
-	
+
 	void stabilizer_register_constructor(ctor_t ctor) {
 		constructors.push_back(ctor);
 	}
@@ -115,9 +117,13 @@ extern "C" {
 	}
 
 	void stabilizer_free(void *p) {
-		getDataHeap()->free(p);
+		if(getDataHeap()->getSize(p) == 0) {
+			free(p);
+		} else {
+			getDataHeap()->free(p);
+		}
 	}
-	
+
 	void reportDoubleFreeError() {
 		abort();
 	}
@@ -208,6 +214,13 @@ void onTrap(int sig, siginfo_t* info, void* c) {
 		
 		// Mark the top return address on the stack as used
 		Pile::mark(*(void**)GET_CONTEXT_SP(c));
+
+		/*void* buffer[512];
+		size_t depth = backtrace(buffer, 512);
+		for(size_t i=0; i<depth; i++) {
+			printf("  %p\n", buffer[i]);
+			Pile::mark(buffer[i]);
+		}*/
 		
 		Pile::sweep();
 		
@@ -221,23 +234,38 @@ void onTrap(int sig, siginfo_t* info, void* c) {
 
 	// Relocate the function
 	f->relocate(relocationStep);
-	
+
 	SET_CONTEXT_IP(c, (uintptr_t)f->getCurrentLocation());
 }
 
 void onTimer(int sig, siginfo_t* info, void* c) {
 	relocationStep++;
+
+	uintptr_t ip = (uintptr_t)GET_CONTEXT_IP(c);
 	
 	for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
 		Function* f = *iter;
-		f->setTrap();
+		
+		if((uintptr_t)f->getCodeBase() > ip || ip - (uintptr_t)f->getCodeBase() > sizeof(Jump)) {
+			f->setTrap();
+		}
 	}
 	
 	rerandomizing = true;
 }
 
-void onSegfault(int sig, siginfo_t* info, void* c) {
-	printf("Segfault at %p, accessing %p\n", (void*)GET_CONTEXT_IP(c), info->si_addr);
+void onFault(int sig, siginfo_t* info, void* c) {
+	printf("Fault at %p, accessing %p\n", (void*)GET_CONTEXT_IP(c), info->si_addr);
+	
+	if(sig == SIGSEGV) {
+		printf("SIGSEGV\n");
+	} else if(sig == SIGABRT) {
+		printf("SIGABRT\n");
+	} else if(sig == SIGILL) {
+		printf("SIGILL\n");
+		printf("  %p\n", *(void**)GET_CONTEXT_IP(c));
+	}
+
 	panic((void*)GET_CONTEXT_IP(c), (void**)GET_CONTEXT_FP(c), true);
 }
 

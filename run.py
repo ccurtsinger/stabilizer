@@ -9,7 +9,7 @@ train_benchmarks = ['calculix', 'gcc', 'lbm', 'libquantum', 'mcf', 'milc', 'namd
 iterations = 10
 to_run = []
 dont_run = []
-configs = ['code', 'code.stack', 'code.heap.stack', 'link']
+configs = ['code', 'code.stack', 'code.heap.stack', 'stack', 'heap.stack', 'heap', 'link']
 tune = 'base'
 size = 'default'
 run_configs = []
@@ -55,16 +55,10 @@ for bmk in to_run:
 	else:
 		this_size = size
 
-	if 'code' in run_configs:
-		runspec(bmk, this_size, tune, 'code', iterations)
-	
-	if 'code.stack' in run_configs:
-		runspec(bmk, this_size, tune, 'code.stack', iterations)
-	
-	if 'code.heap.stack' in run_configs:
-		runspec(bmk, this_size, tune, 'code.heap.stack', iterations)
-
-	if 'link' in run_configs:
-		for i in range(0, iterations):
-			runspec(bmk, this_size, tune, 'link', 1, rebuild=True)
+	for config in run_configs:
+		if config == 'link':
+			for i in range(0, iterations):
+				runspec(bmk, this_size, tune, 'link', 1, rebuild=True)
+		else:
+			runspec(bmk, this_size, tune, config, iterations)
 

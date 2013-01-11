@@ -23,6 +23,14 @@ void InitLibcalls() {
 	inlined.insert("llvm.va_copy");
 	inlined.insert("llvm.va_end");
 
+	inlined.insert("llvm.dbg.declare");
+	inlined.insert("llvm.dbg.value");
+
+	inlined.insert("llvm.expect.i8");
+	inlined.insert("llvm.expect.i16");
+	inlined.insert("llvm.expect.i32");
+	inlined.insert("llvm.expect.i64");
+
 	inlined.insert("llvm.objectsize.i8");
 	inlined.insert("llvm.objectsize.i16");
 	inlined.insert("llvm.objectsize.i32");
@@ -90,6 +98,10 @@ void InitLibcalls() {
 	libcall_map["llvm.pow.f32"] = "powf";
 	libcall_map["llvm.pow.f64"] = "pow";
 	libcall_map["llvm.pow.f80"] = "powl";
+
+	libcall_map["llvm.powi.f32"] = "powif";
+	libcall_map["llvm.powi.f64"] = "powi";
+	libcall_map["llvm.powi.f80"] = "powil";
 
 	libcall_map["llvm.log10.f32"] = "log10f";
 	libcall_map["llvm.log10.f64"] = "log10";

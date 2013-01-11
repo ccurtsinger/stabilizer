@@ -9,7 +9,6 @@ from distutils import util
 parser = argparse.ArgumentParser(description="Stabilizer Compiler Driver")
 
 # Stabilizer-specific arguments
-parser.add_argument('-stabilizer')
 parser.add_argument('-coderand', action='store_true')
 parser.add_argument('-stackrand', action='store_true')
 parser.add_argument('-heaprand', action='store_true')
@@ -36,7 +35,7 @@ parser.add_argument('input', nargs='+')
 # Do the parse
 args = parser.parse_args()
 
-STABILIZER_HOME = args.stabilizer
+STABILIZER_HOME = os.path.dirname(__file__)
 FORTRAN = args.fortran
 
 if args.osx:
@@ -54,6 +53,7 @@ args.f.append('no-omit-frame-pointer')
 if args.coderand:
 	opts.append('lower-intrinsics')
 	opts.append('lowerswitch')
+	opts.append('lowerinvoke')
 	opts.append('stabilize-code')
 
 if args.stackrand:
@@ -74,15 +74,8 @@ def compile(i, args, verbose=False):
 	if i.endswith('.o') or i.endswith('.bc'):
 		return i
 
-	if FORTRAN:
-		cmd = 'llvm-gcc -S -fplugin-arg-dragonegg-emit-ir'
-		cmd += ' -o '+args.o+'.s'
-	elif args.gcc:
-		cmd = 'llvm-gcc -S -fplugin-arg-dragonegg-emit-ir'
-		cmd += ' -o '+args.o+'.s'
-	else:
-		cmd = 'clang -c -emit-llvm'
-		cmd += ' -o '+args.o+'.bc'
+	cmd = 'gcc -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir -g'
+	cmd += ' -o '+args.o+'.s'
 
 	cmd += ' -O0'
 
@@ -101,11 +94,10 @@ def compile(i, args, verbose=False):
 		print cmd
 	os.system(cmd)
 
-	if FORTRAN or args.gcc:
-		cmd = 'llvm-as -o '+args.o+'.bc '+args.o+'.s'
-		if verbose:
-			print cmd
-		os.system(cmd)
+	cmd = 'llvm-as -o '+args.o+'.bc '+args.o+'.s'
+	if verbose:
+		print cmd
+	os.system(cmd)
 
 	return args.o+'.bc'
 
@@ -135,7 +127,7 @@ def transform(i, args, verbose=False):
 
 def link(inputs, args, verbose=False):
 	if FORTRAN and not args.c:
-		cmd = 'gfortran -O0'
+		cmd = 'gfortran -O0 -g'
 	else:
 		cmd = 'clang -g -O0'
 
