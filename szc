@@ -79,10 +79,10 @@ def compile(i):
 
 	if args.frontend == 'gcc' or args.lang == 'fortran':
 		cmd = 'gcc -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
+		cmd += ' -o '+args.o+'.s'
 	else:
 		cmd = 'clang -c -emit-llvm'
-
-	cmd += ' -o '+args.o+'.s'
+		cmd += ' -o '+args.o+'.bc'
 
 	cmd += ' -O0'
 

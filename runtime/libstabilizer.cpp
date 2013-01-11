@@ -26,6 +26,7 @@ void setHandler(int sig, void(*fn)(int, siginfo_t*, void*));
 typedef void(*ctor_t)();
 
 set<Function*> functions;
+set<Function*> live_functions;
 vector<ctor_t> constructors;
 
 bool rerandomizing = false;
@@ -196,11 +197,16 @@ void onTrap(int sig, siginfo_t* info, void* c) {
 	// Back up one instruction
 	SET_CONTEXT_IP(c, (intptr_t)GET_CONTEXT_IP(c)-1);
 	
+	// Extract the trapped function (stored next to the trap instruction)
+	void** p = (void**)GET_CONTEXT_IP(c);
+	Function* f = (Function*)p[1];
+	
 	// If the trap was placed to trigger a re-randomization
 	if(rerandomizing) {
-		for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
+		/*for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end(); iter++) {
 			(*iter)->setTrap();
-		}
+		}*/
+		live_functions.empty();
 		
 		// Mark all on-stack function locations as used
 		void** fp = (void**)GET_CONTEXT_FP(c);
@@ -227,13 +233,10 @@ void onTrap(int sig, siginfo_t* info, void* c) {
 		rerandomizing = false;
 		setTimer(interval);
 	}
-	
-	// Extract the trapped function (stored next to the trap instruction)
-	void** p = (void**)GET_CONTEXT_IP(c);
-	Function* f = (Function*)p[1];
 
 	// Relocate the function
 	f->relocate(relocationStep);
+	live_functions.insert(f);
 
 	SET_CONTEXT_IP(c, (uintptr_t)f->getCurrentLocation());
 }
@@ -243,7 +246,7 @@ void onTimer(int sig, siginfo_t* info, void* c) {
 
 	uintptr_t ip = (uintptr_t)GET_CONTEXT_IP(c);
 	
-	for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
+	for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end(); iter++) {
 		Function* f = *iter;
 		
 		if((uintptr_t)f->getCodeBase() > ip || ip - (uintptr_t)f->getCodeBase() > sizeof(Jump)) {
