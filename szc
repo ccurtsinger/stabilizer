@@ -137,12 +137,12 @@ def transform(i):
 	return args.o+'.opt.bc'
 
 def link(inputs):
-	if args.lang == 'fortran':
+	if args.frontend == 'clang' or args.c:
+		cmd = 'clang -O0'
+	elif args.lang == 'fortran':
 		cmd = 'gfortran -O0'
 	elif args.frontend == 'gcc':
 		cmd = 'gcc -O0'
-	elif args.frontend == 'clang':
-		cmd = 'clang -O0'
 
 	if args.g:
 		cmd += ' -g'
