@@ -30,6 +30,8 @@ void InitLibcalls() {
 	inlined.insert("llvm.expect.i16");
 	inlined.insert("llvm.expect.i32");
 	inlined.insert("llvm.expect.i64");
+	
+	inlined.insert("llvm.uadd.with.overflow.i32");
 
 	inlined.insert("llvm.objectsize.i8");
 	inlined.insert("llvm.objectsize.i16");

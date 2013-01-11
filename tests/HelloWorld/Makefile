@@ -5,7 +5,8 @@ build:: hello
 
 include $(ROOT)/common.mk
 
-CXX = $(ROOT)/szc -stabilizer=$(ROOT) -coderand -stackrand -heaprand -O3
+CC = $(ROOT)/szc $(SZCFLAGS) -Rcode -Rheap -Rstack
+CXX = $(CC)
 CXXFLAGS =
 
 $(OBJS):: $(ROOT)/szc $(ROOT)/LLVMStabilizer.$(SHLIB_SUFFIX)

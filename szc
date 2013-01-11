@@ -8,23 +8,20 @@ from distutils import util
 
 parser = argparse.ArgumentParser(description="Stabilizer Compiler Driver")
 
-# Stabilizer-specific arguments
-parser.add_argument('-coderand', action='store_true')
-parser.add_argument('-stackrand', action='store_true')
-parser.add_argument('-heaprand', action='store_true')
-parser.add_argument('-globrand', action='store_true')
+# Which randomizations should be run
+parser.add_argument('-R', action='append', choices=['code', 'heap', 'stack', 'link'])
 
 # Driver control arguments
 parser.add_argument('-v', action='store_true')
-parser.add_argument('-fortran', action='store_true')
-parser.add_argument('-gcc', action='store_true')
-parser.add_argument('-osx', action='store_true', default=util.get_platform().startswith('macosx'))
-parser.add_argument('-linkrand', action='store_true')
+parser.add_argument('-lang', choices=['c', 'c++', 'fortran'])
+parser.add_argument('-platform', choices=['auto', 'linux', 'osx'], default='auto')
+parser.add_argument('-frontend', choices=['gcc', 'clang'], default='gcc')
 
 # Compiler pass-through arguments
 parser.add_argument('-c', action='store_true')
 parser.add_argument('-o')
 parser.add_argument('-O', type=int, default=2)
+parser.add_argument('-g', action='store_true')
 parser.add_argument('-f', action='append', default=[])
 parser.add_argument('-D', action='append', default=[])
 parser.add_argument('-L', action='append', default=[])
@@ -35,10 +32,19 @@ parser.add_argument('input', nargs='+')
 # Do the parse
 args = parser.parse_args()
 
-STABILIZER_HOME = os.path.dirname(__file__)
-FORTRAN = args.fortran
+# Populate the 'auto' platform selection
+if args.platform == 'auto':
+	if util.get_platform().startswith('macosx'):
+		args.platform = 'osx'
+	elif util.get_platform().startswith('linux'):
+		args.platform = 'linux'
+	else:
+		print 'Unsupported platform: '+util.get_platform()
+		exit(2)
 
-if args.osx:
+STABILIZER_HOME = os.path.dirname(__file__)
+
+if args.platform == 'osx':
 	LIBSUFFIX = 'dylib'
 else:
 	LIBSUFFIX = 'so'
@@ -50,34 +56,38 @@ args.f.append('PIC')
 args.f.append('no-omit-frame-pointer')
 #args.v = True
 
-if args.coderand:
+if 'code' in args.R:
 	opts.append('lower-intrinsics')
 	opts.append('lowerswitch')
 	opts.append('lowerinvoke')
 	opts.append('stabilize-code')
 
-if args.stackrand:
+if 'stack' in args.R:
 	opts.append('stabilize-stack')
 
-if args.heaprand:
+if 'heap' in args.R:
 	opts.append('stabilize-heap')
 
-if args.globrand:
-	opts.append('stabilize-globals')
-
-if args.coderand or args.stackrand or args.heaprand or args.globrand:
+if 'code' in args.R or 'heap' in args.R or 'stack' in args.R:
 	args.L.append(STABILIZER_HOME)
 	args.l.append('stabilizer')
 	opts.append('stabilize')
 
-def compile(i, args, verbose=False):
+def compile(i):
 	if i.endswith('.o') or i.endswith('.bc'):
 		return i
 
-	cmd = 'gcc -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir -g'
+	if args.frontend == 'gcc' or args.lang == 'fortran':
+		cmd = 'gcc -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
+	else:
+		cmd = 'clang -c -emit-llvm'
+
 	cmd += ' -o '+args.o+'.s'
 
 	cmd += ' -O0'
+
+	if args.g:
+		cmd += ' -g'
 
 	for I in args.I:
 		cmd += ' -I'+I
@@ -90,18 +100,19 @@ def compile(i, args, verbose=False):
 
 	cmd += ' '+i
 
-	if verbose:
+	if args.v:
 		print cmd
 	os.system(cmd)
 
-	cmd = 'llvm-as -o '+args.o+'.bc '+args.o+'.s'
-	if verbose:
-		print cmd
-	os.system(cmd)
+	if args.frontend == 'gcc':
+		cmd = 'llvm-as -o '+args.o+'.bc '+args.o+'.s'
+		if args.v:
+			print cmd
+		os.system(cmd)
 
 	return args.o+'.bc'
 
-def transform(i, args, verbose=False):
+def transform(i):
 	if i.endswith('.o') or i.endswith('.opt.bc'):
 		return i
 
@@ -119,17 +130,22 @@ def transform(i, args, verbose=False):
 
 	cmd += ' '+i
 
-	if verbose:
+	if args.v:
 		print cmd
 	os.system(cmd)
 
 	return args.o+'.opt.bc'
 
-def link(inputs, args, verbose=False):
-	if FORTRAN and not args.c:
-		cmd = 'gfortran -O0 -g'
-	else:
-		cmd = 'clang -g -O0'
+def link(inputs):
+	if args.lang == 'fortran':
+		cmd = 'gfortran -O0'
+	elif args.frontend == 'gcc':
+		cmd = 'gcc -O0'
+	elif args.frontend == 'clang':
+		cmd = 'clang -O0'
+
+	if args.g:
+		cmd += ' -g'
 
 	if args.c:
 		cmd += ' -c'
@@ -145,26 +161,20 @@ def link(inputs, args, verbose=False):
 	for f in args.f:
 		cmd += ' -f'+f
 
-	if args.linkrand:
+	if 'link' in args.R:
 		random.shuffle(inputs)
 		print 'Random link order:', ' '.join(inputs)
 	
 	cmd += ' '+' '.join(inputs)
 
-	if verbose:
+	if args.v:
 		print cmd
 	os.system(cmd)
 
 	return args.o
 
 # Build up program arguments
-bytecode_files = []
-for i in args.input:
-	bytecode_files.append(compile(i, args, verbose=args.v))
-
-transformed = []
-for b in bytecode_files:
-	transformed.append(transform(b, args, verbose=args.v))
-
-link(transformed, args, verbose=args.v)
+bytecode_files = map(compile, args.input)
+transformed = map(transform, bytecode_files)
+link(transformed)
 

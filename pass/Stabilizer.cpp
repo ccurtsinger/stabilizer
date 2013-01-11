@@ -270,6 +270,7 @@ struct StabilizerPass : public ModulePass {
 			new_ctors->takeName(ctors);
 			ctors->setName("old.llvm.global_ctors");
 			ctors->setLinkage(GlobalVariable::PrivateLinkage);
+			ctors->eraseFromParent();
 		} else {
 			new_ctors->setName("llvm.global_ctors");
 		}

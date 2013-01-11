@@ -38,7 +38,7 @@ for bmk in dont_run:
 	if bmk in to_run:
 		to_run.remove(bmk)
 
-def runspec(bench, size, tune, ext, n, rebuild=True):
+def runspec(bench, size, tune, ext, n, rebuild=False):
 	cmd = 'runspec --config=szc --mach=linux --action=run --tune='+tune+' --size='+size+' --ext='+ext+' -n '+str(n)
 	if rebuild:
 		cmd += ' --rebuild'

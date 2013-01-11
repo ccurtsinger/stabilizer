@@ -7,7 +7,7 @@ build:: perlbench
 
 include $(ROOT)/common.mk
 
-CC = $(ROOT)/szc -coderand -O0
+CC = $(ROOT)/szc $(SZCFLAGS) -Rcode -Rheap -Rstack
 CXX = $(CC)
 #CFLAGS = -DSPEC_CPU -DNEED_VA_COPY -DPERL_CORE -DSPEC_CPU_MACOSX -DSPEC_CPU_LP64
 CFLAGS = -DSPEC_CPU -DPERL_CORE -DSPEC_CPU_LINUX_X64 -DSPEC_CPU_LP64
