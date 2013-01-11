@@ -3,7 +3,7 @@
 import os
 import sys
 
-benchmarks = ['astar', 'bwaves', 'bzip2', 'calculix', 'gcc', 'gobmk', 'gromacs', 'h264ref', 'hmmer', 'lbm', 'leslie3d', 'libquantum', 'mcf', 'milc', 'namd', 'perlbench', 'sjeng', 'sphinx3', 'wrf', 'zeusmp']
+benchmarks = ['astar', 'bwaves', 'bzip2', 'gcc', 'gobmk', 'gromacs', 'h264ref', 'hmmer', 'lbm', 'leslie3d', 'libquantum', 'mcf', 'milc', 'namd', 'perlbench', 'sjeng', 'sphinx3', 'wrf', 'zeusmp']
 train_benchmarks = ['calculix', 'gcc', 'lbm', 'libquantum', 'mcf', 'milc', 'namd', 'sphinx3', 'perlbench']
 
 iterations = 10

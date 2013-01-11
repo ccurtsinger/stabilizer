@@ -102,7 +102,7 @@ void InitLibcalls() {
 	libcall_map["llvm.pow.f80"] = "powl";
 
 	libcall_map["llvm.powi.f32"] = "powif";
-	libcall_map["llvm.powi.f64"] = "powi";
+	libcall_map["llvm.powi.f64"] = "powif";
 	libcall_map["llvm.powi.f80"] = "powil";
 
 	libcall_map["llvm.log10.f32"] = "log10f";
