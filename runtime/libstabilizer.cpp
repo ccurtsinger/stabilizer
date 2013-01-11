@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <execinfo.h>
 
+#include "mwc64.h"
+
 #include "Function.h"
 #include "Heap.h"
 #include "Pile.h"
@@ -36,7 +38,8 @@ size_t relocationStep = 1;
 void** topFrame = NULL;
 
 enum {
-	StackAlignment = 16
+	StackAlignment = 16,
+	RandIntChunks = 4
 };
 
 /**
@@ -102,7 +105,20 @@ extern "C" {
 	}
 	
 	uintptr_t stabilizer_stack_padding() {
-		return StackAlignment * (rand() % (PAGESIZE/StackAlignment));
+		static MWC64 _rng;
+		static size_t count = 0;
+		uint8_t rands[RandIntChunks * 8];
+		
+		if(count == 0) {
+			for(;count < RandIntChunks; count += 8) {
+				*(uint64_t*)&rands[count] = _rng.next();
+			}
+		}
+		
+		count--;
+		return StackAlignment * rands[count];
+		
+		//return StackAlignment * modulo<PAGESIZE/StackAlignment>(_rng.next());
 	}
 
 	void* stabilizer_malloc(size_t sz) {
