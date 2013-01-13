@@ -16,6 +16,10 @@
 #define MAP_32BIT 0
 #endif
 
+#if !defined(CODE_ALIGN)
+#define CODE_ALIGN 128
+#endif
+
 #if !defined(_XOPEN_SOURCE)
 // Digging inside of ucontext_t is deprecated unless this macros is defined
 #define _XOPEN_SOURCE

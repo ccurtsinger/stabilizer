@@ -18,7 +18,7 @@ $(OBJS):: $(ROOT)/szc $(ROOT)/LLVMStabilizer.$(SHLIB_SUFFIX)
 test:: perlbench
 	@echo $(INDENT)[test] Running 'perlbench'
 	@echo
-	#@$(LD_PATH_VAR)=$(ROOT) ./perlbench -Ilib input/suns.pl
+	@$(LD_PATH_VAR)=$(ROOT) ./perlbench -Ilib input/suns.pl
 	@$(LD_PATH_VAR)=$(ROOT) ./perlbench -Ilib input/scrabbl.pl < input/scrabbl.in
 	@$(LD_PATH_VAR)=$(ROOT) ./perlbench -Ilib input/splitmail.pl 535 13 25 24 1091
 	@echo

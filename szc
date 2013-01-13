@@ -77,9 +77,15 @@ def compile(i):
 	if i.endswith('.o') or i.endswith('.bc'):
 		return i
 
-	if args.frontend == 'gcc' or args.lang == 'fortran':
-		cmd = 'gcc -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
+	if args.lang == 'fortran':
+		cmd = 'gfortran-4.6 -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
 		cmd += ' -o '+args.o+'.s'
+		args.frontend = 'gcc'
+		
+	elif args.frontend == 'gcc':
+		cmd = 'gcc-4.6 -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
+		cmd += ' -o '+args.o+'.s'
+		
 	else:
 		cmd = 'clang -c -emit-llvm'
 		cmd += ' -o '+args.o+'.bc'
@@ -140,12 +146,23 @@ def link(inputs):
 	if args.frontend == 'clang' or args.c:
 		cmd = 'clang -O0'
 	elif args.lang == 'fortran':
-		cmd = 'gfortran -O0'
+		cmd = 'gfortran-4.6 -O0'
 	elif args.frontend == 'gcc':
-		cmd = 'gcc -O0'
+		cmd = 'gcc-4.6 -O0'
 
 	if args.g:
 		cmd += ' -g'
+
+	cmd += ' -o '+args.o
+	
+	for f in args.f:
+		cmd += ' -f'+f
+
+	if 'link' in args.R and len(inputs) > 1:
+		random.shuffle(inputs)
+		print 'Random link order:', ' '.join(inputs)
+	
+	cmd += ' '+' '.join(inputs)
 
 	if args.c:
 		cmd += ' -c'
@@ -155,17 +172,6 @@ def link(inputs):
 		
 		for l in args.l:
 			cmd += ' -l'+l
-
-	cmd += ' -o '+args.o
-	
-	for f in args.f:
-		cmd += ' -f'+f
-
-	if 'link' in args.R:
-		random.shuffle(inputs)
-		print 'Random link order:', ' '.join(inputs)
-	
-	cmd += ' '+' '.join(inputs)
 
 	if args.v:
 		print cmd

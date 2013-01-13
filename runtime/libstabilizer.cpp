@@ -39,7 +39,7 @@ void** topFrame = NULL;
 
 enum {
 	StackAlignment = 16,
-	RandIntChunks = 4
+	RandIntChunks = 2
 };
 
 /**
@@ -60,9 +60,9 @@ int main(int argc, char **argv) {
 	setHandler(SIGTRAP, onTrap);
 	setHandler(SIGALRM, onTimer);
 	setHandler(SIGSEGV, onFault);
-	setHandler(SIGBUS, onFault);
-	setHandler(SIGABRT, onFault);
-	setHandler(SIGILL, onFault);
+	//setHandler(SIGBUS, onFault);
+	//setHandler(SIGABRT, onFault);
+	//setHandler(SIGILL, onFault);
 	
 	// Lazily relocate functions
 	for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
@@ -82,14 +82,7 @@ int main(int argc, char **argv) {
 	}
 	
 	// Call the old main function
-	int ret = stabilizer_main(argc, argv);
-	
-	// Free function objects
-	for(set<Function*>::iterator i = functions.begin(); i != functions.end(); i++) {
-		delete *i;
-	}
-	
-	return ret;
+	return stabilizer_main(argc, argv);
 }
 
 extern "C" {

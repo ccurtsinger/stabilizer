@@ -18,6 +18,44 @@ enum {
 	CodeSize = 0x2000000
 };
 
+template<int Prot, int Flags> class MMapSource {
+private:
+	bool _exhausted32;
+	
+public:
+	enum { Alignment = PAGESIZE };
+
+	MMapSource() {
+		_exhausted32 = false;
+	}
+	
+	inline void* malloc(size_t sz) {
+		void* ptr;
+		
+		if(Flags & MAP_32BIT) {
+			// If we haven't exhausted the 32 bit pages
+			if(!_exhausted32) {
+				ptr = mmap(NULL, sz, Prot, Flags, -1, 0);
+				
+				if(ptr != MAP_FAILED) {
+					return ptr;
+				} else {
+					_exhausted32 = true;
+				}
+			}
+		}
+		
+		// Try the map without the MAP_32BIT flag set
+		ptr = mmap(NULL, sz, Prot, Flags & ~MAP_32BIT, -1, 0);
+		
+		if(ptr == MAP_FAILED) {
+			ptr = NULL;
+		}
+		
+		return ptr;
+	}
+};
+
 #if defined(USE_TLSF)
 
 #include "TLSFLayer.hpp"
@@ -29,13 +67,13 @@ enum {
 	
 #define HL_EXECUTABLE_HEAP 1
 	
-	class DataSource : public OneHeap<BumpAlloc<DataSize, PrivateMmapHeap, 16> > {};
-	class CodeSource : public OneHeap<BumpAlloc<CodeSize, PrivateMmapHeap, 64> > {};
+	class DataSource : public SizeHeap<FreelistHeap<BumpAlloc<DataSize, MMapSource<DataProt, DataFlags>, 16> > > {};
+	class CodeSource : public SizeHeap<FreelistHeap<BumpAlloc<CodeSize, MMapSource<CodeProt, CodeFlags>, CODE_ALIGN> > > {};
 	
 #endif
 	
-typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, SizeHeap<FreelistHeap<DataSource> > >, SizeHeap<DataSource> > > DataHeapType;
-typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<CodeShuffle, SizeHeap<FreelistHeap<CodeSource> > >, SizeHeap<CodeSource> > > CodeHeapType;
+typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, DataSource>, DataSource> > DataHeapType;
+typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<CodeShuffle, CodeSource>, CodeSource> > CodeHeapType;
 	
 inline static DataHeapType* getDataHeap() {
 	static char buf[sizeof(DataHeapType)];

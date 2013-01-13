@@ -94,7 +94,7 @@ $(ROOT)/Heap-Layers:
 	@rm -rf $(ROOT)/Heap-Layers
 	@git clone https://github.com/ccurtsinger/Heap-Layers.git $(ROOT)/Heap-Layers
 
-$(ROOT)/DieHard/src/include:
+$(ROOT)/DieHard/src/include $(ROOT)/DieHard/src/include/math $(ROOT)/DieHard/src/include/rng $(ROOT)/DieHard/src/include/static $(ROOT)/DieHard/src/include/util:
 	@echo $(INDENT)[git] Checking out DieHard
 	@rm -rf $(ROOT)/DieHard
 	@git clone https://github.com/ccurtsinger/DieHard.git $(ROOT)/DieHard

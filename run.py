@@ -4,14 +4,13 @@ import os
 import sys
 
 benchmarks = ['astar', 'bwaves', 'bzip2', 'gcc', 'gobmk', 'gromacs', 'h264ref', 'hmmer', 'lbm', 'leslie3d', 'libquantum', 'mcf', 'milc', 'namd', 'perlbench', 'sjeng', 'sphinx3', 'wrf', 'zeusmp']
-train_benchmarks = ['calculix', 'gcc', 'lbm', 'libquantum', 'mcf', 'milc', 'namd', 'sphinx3', 'perlbench']
 
 iterations = 10
 to_run = []
 dont_run = []
 configs = ['code', 'code.stack', 'code.heap.stack', 'stack', 'heap.stack', 'heap', 'link']
 tune = 'base'
-size = 'default'
+size = 'train'
 run_configs = []
 
 for arg in sys.argv[1:]:
@@ -47,18 +46,10 @@ def runspec(bench, size, tune, ext, n, rebuild=False):
 	os.system(cmd)
 
 for bmk in to_run:
-	if size == 'default':
-		if bmk in train_benchmarks:
-			this_size = 'train'
-		else:
-			this_size = 'test'
-	else:
-		this_size = size
-
 	for config in run_configs:
 		if config == 'link':
 			for i in range(0, iterations):
-				runspec(bmk, this_size, tune, 'link', 1, rebuild=True)
+				runspec(bmk, size, tune, 'link', 1, rebuild=True)
 		else:
-			runspec(bmk, this_size, tune, config, iterations)
+			runspec(bmk, size, tune, config, iterations, rebuild=True)
 

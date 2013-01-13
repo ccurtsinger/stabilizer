@@ -18,4 +18,8 @@ tests/libquantum/libquantum
 tests/bzip2/obj
 tests/bzip2/bzip2
 
+tests/perlbench/obj
+tests/perlbench/perlbench
+tests/perlbench/validate
+
 nbproject
