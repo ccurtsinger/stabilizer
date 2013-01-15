@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <sys/mman.h>
 
+#include "randomnumbergenerator.h"
+
 #ifndef PAGESIZE
 #define PAGESIZE 4096
 #endif
@@ -65,6 +67,25 @@ static void flush_icache(void* begin, size_t size) {
 #elif defined(__x86_64__)
 #define TRAP ((void*)0x00000000000000CC)
 #endif
+
+static inline uint8_t getRandomByte() {
+	static RandomNumberGenerator _rng;
+	static uint8_t _randCount = 0;
+	
+	static union {
+		uint8_t _rands[sizeof(int)];
+		int _bigRand;
+	};
+	
+	if(_randCount == sizeof(int)) {
+		_bigRand = _rng.next();
+		_randCount = sizeof(int);
+	}
+	
+	uint8_t r = _rands[_randCount];
+	_randCount++;
+	return r;
+}
 
 #ifndef NDEBUG
 #include <stdio.h>

@@ -10,5 +10,5 @@ INCLUDE_DIRS = $(ROOT)/Heap-Layers \
 
 include $(ROOT)/common.mk
 
-CFLAGS += -O2 -DNDEBUG
-CXXFLAGS += -O2 -DNDEBUG
+CFLAGS += -Os -DNDEBUG
+CXXFLAGS += -Os -DNDEBUG

@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include <execinfo.h>
 
-#include "mwc64.h"
-
 #include "Function.h"
 #include "Heap.h"
 #include "Pile.h"
@@ -22,13 +20,14 @@ void onTrap(int sig, siginfo_t* info, void* c);
 void onTimer(int sig, siginfo_t* info, void* c);
 void onFault(int sig, siginfo_t* info, void* c);
 
-void setTimer(int msec);
-void setHandler(int sig, void(*fn)(int, siginfo_t*, void*));
+static inline void setTimer(int msec);
+static inline void setHandler(int sig, void(*fn)(int, siginfo_t*, void*));
 
 typedef void(*ctor_t)();
 
 set<Function*> functions;
 set<Function*> live_functions;
+set<uint8_t*> stack_tables;
 vector<ctor_t> constructors;
 
 bool rerandomizing = false;
@@ -36,11 +35,6 @@ size_t interval = 500;
 size_t relocationStep = 1;
 
 void** topFrame = NULL;
-
-enum {
-	StackAlignment = 16,
-	RandIntChunks = 2
-};
 
 /**
  * Entry point for a program run with Stabilizer.  The program's existing
@@ -60,6 +54,7 @@ int main(int argc, char **argv) {
 	setHandler(SIGTRAP, onTrap);
 	setHandler(SIGALRM, onTimer);
 	setHandler(SIGSEGV, onFault);
+	setHandler(SIGINFO, onFault);
 	//setHandler(SIGBUS, onFault);
 	//setHandler(SIGABRT, onFault);
 	//setHandler(SIGILL, onFault);
@@ -87,9 +82,9 @@ int main(int argc, char **argv) {
 
 extern "C" {
 	void stabilizer_register_function(void* base, void* limit, 
-		void* relocationTable, size_t tableSize, bool adjacent) {
+		void* relocationTable, size_t tableSize, bool adjacent, uint8_t* stackTable) {
 		
-		Function* f = new Function(base, limit, relocationTable, tableSize, adjacent);
+		Function* f = new Function(base, limit, relocationTable, tableSize, adjacent, stackTable);
 		functions.insert(f);
 	}
 
@@ -97,21 +92,8 @@ extern "C" {
 		constructors.push_back(ctor);
 	}
 	
-	uintptr_t stabilizer_stack_padding() {
-		static MWC64 _rng;
-		static size_t count = 0;
-		uint8_t rands[RandIntChunks * 8];
-		
-		if(count == 0) {
-			for(;count < RandIntChunks; count += 8) {
-				*(uint64_t*)&rands[count] = _rng.next();
-			}
-		}
-		
-		count--;
-		return StackAlignment * rands[count];
-		
-		//return StackAlignment * modulo<PAGESIZE/StackAlignment>(_rng.next());
+	void stabilizer_register_stack_table(uint8_t* table) {
+		stack_tables.insert(table);
 	}
 
 	void* stabilizer_malloc(size_t sz) {
@@ -212,9 +194,6 @@ void onTrap(int sig, siginfo_t* info, void* c) {
 	
 	// If the trap was placed to trigger a re-randomization
 	if(rerandomizing) {
-		/*for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end(); iter++) {
-			(*iter)->setTrap();
-		}*/
 		live_functions.empty();
 		
 		// Mark all on-stack function locations as used
@@ -229,13 +208,6 @@ void onTrap(int sig, siginfo_t* info, void* c) {
 		
 		// Mark the top return address on the stack as used
 		Pile::mark(*(void**)GET_CONTEXT_SP(c));
-
-		/*void* buffer[512];
-		size_t depth = backtrace(buffer, 512);
-		for(size_t i=0; i<depth; i++) {
-			printf("  %p\n", buffer[i]);
-			Pile::mark(buffer[i]);
-		}*/
 		
 		Pile::sweep();
 		
@@ -255,11 +227,23 @@ void onTimer(int sig, siginfo_t* info, void* c) {
 
 	uintptr_t ip = (uintptr_t)GET_CONTEXT_IP(c);
 	
-	for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end(); iter++) {
-		Function* f = *iter;
+	if(functions.size() == 0) {
+		for(set<uint8_t*>::iterator iter = stack_tables.begin(); iter != stack_tables.end(); iter++) {
+			uint8_t* table = *iter;
+			for(size_t i=0; i<256; i++) {
+				table[i] = getRandomByte();
+			}
+		}
 		
-		if((uintptr_t)f->getCodeBase() > ip || ip - (uintptr_t)f->getCodeBase() > sizeof(Jump)) {
-			f->setTrap();
+		setTimer(interval);
+		
+	} else {
+		for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end(); iter++) {
+			Function* f = *iter;
+
+			if((uintptr_t)f->getCodeBase() > ip || ip - (uintptr_t)f->getCodeBase() > sizeof(Jump)) {
+				f->setTrap();
+			}
 		}
 	}
 	
@@ -281,7 +265,7 @@ void onFault(int sig, siginfo_t* info, void* c) {
 	panic((void*)GET_CONTEXT_IP(c), (void**)GET_CONTEXT_FP(c), true);
 }
 
-void setTimer(int msec) {
+static inline void setTimer(int msec) {
 	struct itimerval timer;
 
 	timer.it_value.tv_sec = (msec - msec % 1000) / 1000;
@@ -292,7 +276,7 @@ void setTimer(int msec) {
 	setitimer(ITIMER_REAL, &timer, 0);
 }
 
-void setHandler(int sig, void(*fn)(int, siginfo_t*, void*)) {
+static inline void setHandler(int sig, void(*fn)(int, siginfo_t*, void*)) {
 	struct sigaction sa;
 	sa.sa_sigaction = fn;
 	sa.sa_flags = SA_SIGINFO;

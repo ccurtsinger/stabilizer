@@ -46,6 +46,7 @@ STABILIZER_HOME = os.path.dirname(__file__)
 
 if args.platform == 'osx':
 	LIBSUFFIX = 'dylib'
+	args.frontend = 'clang'
 else:
 	LIBSUFFIX = 'so'
 
@@ -78,12 +79,12 @@ def compile(i):
 		return i
 
 	if args.lang == 'fortran':
-		cmd = 'gfortran-4.6 -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
+		cmd = 'gfortran -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
 		cmd += ' -o '+args.o+'.s'
 		args.frontend = 'gcc'
 		
 	elif args.frontend == 'gcc':
-		cmd = 'gcc-4.6 -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
+		cmd = 'gcc -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
 		cmd += ' -o '+args.o+'.s'
 		
 	else:
@@ -146,9 +147,9 @@ def link(inputs):
 	if args.frontend == 'clang' or args.c:
 		cmd = 'clang -O0'
 	elif args.lang == 'fortran':
-		cmd = 'gfortran-4.6 -O0'
+		cmd = 'gfortran -O0'
 	elif args.frontend == 'gcc':
-		cmd = 'gcc-4.6 -O0'
+		cmd = 'gcc -O0'
 
 	if args.g:
 		cmd += ' -g'

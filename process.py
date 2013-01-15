@@ -93,6 +93,12 @@ def group(results, *keys):
 		grouped[g] = group(grouped[g], *keys[1:])
 	return grouped
 
+def pad(s, length=20):
+	if len(s) < length:
+		return s + ' '*(length - len(s))
+	else:
+		return s[0:length]
+
 results = where(results, 'valid', 'S')
 results = get(results, 'benchmark', 'tune', 'reported_time', 'ext')
 
@@ -146,19 +152,26 @@ else:
 	exts.sort()
 	
 	headings = ['Benchmark']
+	columns = []
 	for ext in exts:
 		for tune in tunes:
-			headings.append(ext+'_'+tune)
+			found = False
+			for benchmark in benchmarks:
+				found |= tune in results[benchmark] and ext in results[benchmark][tune]
+				
+			if found:
+				headings.append(ext+'_'+tune)
+				columns.append(ext+'_'+tune)
 	
-	print ', '.join(headings)
+	print ', '.join(map(pad, headings))
 	
 	for benchmark in benchmarks:
-		print benchmark+',',
+		print pad(benchmark)+',',
 	
 		values = []
 		for ext in exts:
 			for tune in tunes:
-				if tune not in results[benchmark] or ext not in results[benchmark][tune]:
+				if (ext+'_'+tune) in columns and (tune not in results[benchmark] or ext not in results[benchmark][tune]):
 					values.append('')
 				elif args.norm:
 					if len(results[benchmark][tune][ext]) < 3:
@@ -178,4 +191,4 @@ else:
 				else:
 					values.append(mean(results[benchmark][tune][ext]))
 	
-		print ', '.join(map(str, values))
+		print ', '.join(map(pad, map(str, values)))

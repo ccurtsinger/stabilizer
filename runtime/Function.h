@@ -27,6 +27,8 @@ private:
 	size_t _tableSize;		//< The size of this function's relocation table
 	bool _tableAdjacent;	//< If true, the relocation table should be placed next to the function
 	
+	uint8_t* _stackPadTable;	//< The base of the 256-entry stack pad table for this function
+	
 	FunctionHeader _savedHeader;	//< The original contents of the function header
 	bool _trapped;			//< If true, the function will trap when called
 	
@@ -70,12 +72,13 @@ public:
 	* \arg tableSize The size of the function's relocation table
 	* \arg tableAdjacent If true, the relocation table should be placed immediately after the function
 	*/
-	inline Function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool tableAdjacent) {
+	inline Function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool tableAdjacent, uint8_t* stackPadTable) {
 		this->_codeBase = codeBase;
 		this->_codeSize = (uintptr_t)codeLimit - (uintptr_t)codeBase;
 		this->_tableBase = tableBase;
 		this->_tableSize = tableSize;
 		this->_tableAdjacent = tableAdjacent;
+		this->_stackPadTable = stackPadTable;
 		this->_lastRelocation = 0;
 		this->_currentLocation = NULL;
 
@@ -136,6 +139,16 @@ public:
 
 				// Patch in the saved header, since the original has been overwritten
 				*(FunctionHeader*)newBase = _savedHeader;
+				
+				// If there is a stack pad table, move it to a random location
+				if(_stackPadTable != NULL) {
+					uintptr_t* table = (uintptr_t*)_tableBase;
+					for(size_t i=0; i<_tableSize; i+=sizeof(uintptr_t)) {
+						if(table[i] == (uintptr_t)_stackPadTable) {
+							table[i] = (uintptr_t)getDataHeap()->malloc(256);
+						}
+					}
+				}
 
 				// Copy the relocation table, if needed
 				if(_tableAdjacent) {
@@ -162,6 +175,13 @@ public:
 
 			// Update the last-relocated counter
 			_lastRelocation = relocation;
+			
+			// Fill the stack pad table with random bytes
+			if(_stackPadTable != NULL) {
+				for(size_t i=0; i<256; i++) {
+					_stackPadTable[i] = getRandomByte();
+				}
+			}
 
 			return true;
 

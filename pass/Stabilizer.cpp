@@ -21,7 +21,10 @@ using namespace llvm::cl;
 
 using namespace std;
 
-enum { ALIGN = 64 };
+enum {
+	ALIGN = 64,
+	StackPadTableSize = 256
+};
 
 // Randomization configuration options
 opt<bool> stabilize_heap   ("stabilize-heap",    init(false), desc("Randomize heap object placement"));
@@ -33,7 +36,7 @@ struct StabilizerPass : public ModulePass {
 
 	Function* registerFunction;
 	Function* registerConstructor;
-	Function* stackPadding;
+	Function* registerStackTable;
 	
 	StabilizerPass() : ModulePass(ID) {}
 
@@ -86,6 +89,22 @@ struct StabilizerPass : public ModulePass {
 		}
 	}
 	
+	size_t getIntptrSize(Module& m) {
+		if(m.getPointerSize() == Module::Pointer32) {
+			return 32;
+		} else {
+			return 64;
+		}
+	}
+	
+	Constant* getInt(Module& m, size_t bits, uint64_t value, bool is_signed) {
+		return Constant::getIntegerValue(Type::getIntNTy(m.getContext(), bits), APInt(bits, value, is_signed));
+	}
+	
+	Constant* getIntptr(Module& m, uint64_t value, bool is_signed) {
+		return getInt(m, getIntptrSize(m), value, is_signed);
+	}
+	
 	/**
 	 * \brief Check if the target platform uses PC-relative addressing for data
 	 * \arg m The module being transformed
@@ -129,13 +148,37 @@ struct StabilizerPass : public ModulePass {
 		
 		declareRuntimeFunctions(m);
 
+		map<Function*, GlobalVariable*> stackTables;
+		
+		// Declare the stack pad table type
+		ArrayType* stackPadTableType = ArrayType::get(Type::getInt8Ty(m.getContext()), StackPadTableSize);
+		
 		// Enable stack randomization
 		if(stabilize_stack) {
+			vector<Constant*> values;
+			//values.push_back(getInt(m, 8, StackPadTableSize, false));
+			for(size_t i=0; i<StackPadTableSize; i++) {
+			//for(size_t i=1; i<StackPadTableSize; i++) {
+				values.push_back(getInt(m, 8, 0, false));
+			}
+			
 			// Transform each function
-			for(set<Function*>::iterator f_iter = local_functions.begin();
-			f_iter != local_functions.end(); f_iter++) {
+			for(set<Function*>::iterator f_iter = local_functions.begin(); f_iter != local_functions.end(); f_iter++) {
+				Function* f = *f_iter;
 				
-				randomizeStack(m, **f_iter);
+				// Create the stack pad table
+				GlobalVariable* table = new GlobalVariable(
+					m, 
+					stackPadTableType, 
+					false, 
+					GlobalValue::InternalLinkage,
+					ConstantArray::get(stackPadTableType, values),
+					f->getName()+".stack_table"
+				);
+				
+				stackTables[f] = table;
+				
+				randomizeStack(m, *f, table);
 			}
 		}
 
@@ -154,6 +197,14 @@ struct StabilizerPass : public ModulePass {
 				
 				Function* f = *f_iter;
 				vector<Value*> args = randomizeCode(m, *f);
+				
+				Value* table = stackTables[f];
+				if(table == NULL) {
+					table = Constant::getNullValue(PointerType::get(stackPadTableType, 0));
+				}
+				
+				args.push_back(table);
+				
 				CallInst::Create(registerFunction, args, "", ctor_bb);
 			}
 		}
@@ -163,6 +214,15 @@ struct StabilizerPass : public ModulePass {
 			vector<Value*> args;
 			args.push_back(*ctor_iter);
 			CallInst::Create(registerConstructor, args, "", ctor_bb);
+		}
+		
+		// If we're not randomizing code, declare the stack tables by themselves
+		if(stabilize_stack && !stabilize_code) {
+			for(map<Function*, GlobalVariable*>::iterator iter = stackTables.begin(); iter != stackTables.end(); iter++) {
+				vector<Value*> args;
+				args.push_back(iter->second);
+				CallInst::Create(registerStackTable, args, "", ctor_bb);
+			}
 		}
 		
 		ReturnInst::Create(m.getContext(), ctor_bb);
@@ -285,10 +345,11 @@ struct StabilizerPass : public ModulePass {
 	 * \arg m The module being transformed
 	 * \arg f The function being transformed
 	 */
-	void randomizeStack(Module& m, llvm::Function& f) {
+	void randomizeStack(Module& m, llvm::Function& f, GlobalVariable* stackPadTable) {
 		Function* stacksave = Intrinsic::getDeclaration(&m, Intrinsic::stacksave);
 		Function* stackrestore = Intrinsic::getDeclaration(&m, Intrinsic::stackrestore);
 		
+		// Get all the callsites in this function
 		vector<CallInst*> calls;
 		
 		for(Function::iterator b_iter = f.begin(); b_iter != f.end(); b_iter++) {
@@ -304,14 +365,62 @@ struct StabilizerPass : public ModulePass {
 			}
 		}
 		
+		// Create a new basic block to load the stack pad size
+		BasicBlock* old_entry = &f.getEntryBlock();
+		BasicBlock* new_entry = BasicBlock::Create(m.getContext(), "new_entry", &f, old_entry);
+		
+		//////////////// New Entry ////////////////
+		
+		// Get a pointer to the count value (first element in the array)
+		vector<Value*> count_indices;
+		count_indices.push_back(getInt(m, 32, 0, false));
+		count_indices.push_back(getInt(m, 32, 0, false));
+		Value* count_ptr = GetElementPtrInst::CreateInBounds(stackPadTable, count_indices, "count_ptr", new_entry);
+		
+		// Load the count value
+		Value* count = new LoadInst(count_ptr, "count", new_entry);
+		
+		// Get a pointer to the current pad value
+		vector<Value*> pad_indices;
+		pad_indices.push_back(getInt(m, 32, 0, false));
+		pad_indices.push_back(count);
+		Value* pad_ptr = GetElementPtrInst::CreateInBounds(stackPadTable, pad_indices, "pad_ptr", new_entry);
+		
+		// Load the stack pad
+		Value* pad = new LoadInst(pad_ptr, "pad", new_entry);
+		
+		// Increment the count
+		BinaryOperator* new_count = BinaryOperator::CreateNUWAdd(
+			count,
+			getInt(m, 8, 1, false),
+			"new_count",
+			new_entry
+		);
+
+		new StoreInst(new_count, count_ptr, new_entry);
+		
+		Value* wide_pad = ZExtInst::CreateZExtOrBitCast(pad, getIntptrType(m), "", new_entry);
+		
+		// Multiply the pad by the required stack alignment
+		BinaryOperator* padSize = BinaryOperator::CreateNUWMul(
+			wide_pad,
+			getIntptr(m, 16, false),
+			"aligned_pad",
+			new_entry
+		);
+		
+		BranchInst::Create(old_entry, new_entry);
+		
+		//////////////////////////////////
+		
+		// Pad the stack before each callsite
+		
 		for(vector<CallInst*>::iterator c_iter = calls.begin(); c_iter != calls.end(); c_iter++) {
 			CallInst* c = *c_iter;
 			Instruction* next = c->getNextNode();
 			
 			CallInst* oldStack = CallInst::Create(stacksave, "", c);
 			PtrToIntInst* oldStackInt = new PtrToIntInst(oldStack, getIntptrType(m), "", c);
-
-			CallInst* padSize = CallInst::Create(stackPadding, "", c);
 
 			BinaryOperator* newStackInt = BinaryOperator::CreateSub(oldStackInt, padSize, "", c);
 			IntToPtrInst* newStack = new IntToPtrInst(newStackInt, Type::getInt8PtrTy(m.getContext()), "", c);
@@ -881,8 +990,16 @@ struct StabilizerPass : public ModulePass {
 	 */
 	void declareRuntimeFunctions(Module& m) {
 		// Declare the register_function runtime function
+		vector<Type*> register_function_params;
+		register_function_params.push_back(Type::getInt8PtrTy(m.getContext()));
+		register_function_params.push_back(Type::getInt8PtrTy(m.getContext()));
+		register_function_params.push_back(Type::getInt8PtrTy(m.getContext()));
+		register_function_params.push_back(Type::getInt32Ty(m.getContext()));
+		register_function_params.push_back(Type::getInt1Ty(m.getContext()));
+		register_function_params.push_back(PointerType::get(ArrayType::get(Type::getInt8Ty(m.getContext()), StackPadTableSize), 0));
+		
 		registerFunction = Function::Create(
-			 TypeBuilder<void(i<8>*, i<8>*, i<8>*, i<32>, i<1>), true>::get(m.getContext()),
+			 FunctionType::get(Type::getVoidTy(m.getContext()), register_function_params, false),
 			 Function::ExternalLinkage,
 			 "stabilizer_register_function",
 			 &m
@@ -900,15 +1017,18 @@ struct StabilizerPass : public ModulePass {
 		
 		registerConstructor->addFnAttr(Attribute::NonLazyBind);
 		
-		// Declare the stack_padding runtime function
-		stackPadding = Function::Create(
-			FunctionType::get(getIntptrType(m), false),
+		// Declare the register_stack_table runtime function
+		vector<Type*> params;
+		params.push_back(PointerType::get(ArrayType::get(Type::getInt8Ty(m.getContext()), StackPadTableSize), 0));
+		
+		registerStackTable = Function::Create(
+			FunctionType::get(Type::getVoidTy(m.getContext()), params, false),
 			Function::ExternalLinkage,
-			"stabilizer_stack_padding",
+			"stabilizer_register_stack_table",
 			&m
 		);
 		
-		stackPadding->addFnAttr(Attribute::NonLazyBind);
+		registerStackTable->addFnAttr(Attribute::NonLazyBind);
 	}
 };
 
