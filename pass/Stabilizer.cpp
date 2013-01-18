@@ -483,7 +483,7 @@ struct StabilizerPass : public ModulePass {
 		//}
 		
 		// Collect all the referenced global values in this function
-		map<Constant*, set<Use*> > references = findPCRelativeUses(f);
+		map<Constant*, set<Use*> > references = findPCRelativeUsesIn(f);
 		
 		if(references.size() > 0) {
 			// Build an ordered list of referenced constants
@@ -647,6 +647,12 @@ struct StabilizerPass : public ModulePass {
 	 * \returns The lowest-possible set of u's ancestor uses s.t. all users are Instructions
 	 */
 	set<Use*> findInstructionUses(Use* u) {
+		static map<Use*, set<Use*> > _cache;
+		
+		if(_cache.find(u) != _cache.end()) {
+			return _cache[u];
+		}
+		
 		User* user = u->getUser();
 		
 		set<Use*> lifted;
@@ -661,15 +667,87 @@ struct StabilizerPass : public ModulePass {
 				Use* use_of_user = &iter.getUse();
 				set<Use*> lus = findInstructionUses(use_of_user);
 				
-				for(set<Use*>::iterator lu_iter = lus.begin();
-					lu_iter != lus.end(); lu_iter++) {
+				for(set<Use*>::iterator lu_iter = lus.begin(); lu_iter != lus.end(); lu_iter++) {
 					
 					lifted.insert(*lu_iter);
 				}
 			}
 		}
 		
+		_cache[u] = lifted;
+		
 		return lifted;
+	}
+	
+	bool containsGlobal(Value* v) {
+		if(isa<Function>(v)) {
+			Function* f = dyn_cast<Function>(v);
+			
+			if(f->isIntrinsic() || f->getName().equals("__gxx_personality_v0")) {
+				return false;
+			} else {
+				return true;
+			}
+			
+		} else if(isa<GlobalValue>(v)) {
+			return true;
+		
+		} else if(isa<ConstantExpr>(v)) {
+			ConstantExpr* e = dyn_cast<ConstantExpr>(v);
+			
+			for(ConstantExpr::op_iterator use = e->op_begin(); use != e->op_end(); use++) {
+				if(containsGlobal(use->get())) {
+					return true;
+				}
+			}
+		}
+		
+		return false;
+	}
+	
+	map<Constant*, set<Use*> > findPCRelativeUsesIn(Function& f) {
+		map<Constant*, set<Use*> > result;
+		
+		for(Function::iterator b = f.begin(); b != f.end(); b++) {
+			for(BasicBlock::iterator i_iter = b->begin(); i_iter != b->end(); i_iter++) {
+				Instruction* i = &*i_iter;
+				
+				if(isa<PHINode>(i)) {
+					PHINode* phi = dyn_cast<PHINode>(i);
+					for(size_t index = 0; index < phi->getNumIncomingValues(); index++) {
+						Value* operand = phi->getIncomingValue(index);
+						
+						if(isa<Constant>(operand) && containsGlobal(operand)) {
+							Constant* c = dyn_cast<Constant>(operand);
+							if(result.find(c) == result.end()) {
+								result[c] = set<Use*>();
+							}
+							
+							size_t operand_index = phi->getOperandNumForIncomingValue(index);
+							Use& use = phi->getOperandUse(operand_index);
+							
+							result[c].insert(&use);
+						}
+					}
+				} else {
+					// TODO: only process control flow targets on platforms that don't have PC-relative data addressing
+					
+					for(Instruction::op_iterator use = i->op_begin(); use != i->op_end(); use++) {
+						Value* operand = use->get();
+						if(isa<Constant>(operand) && containsGlobal(operand)) {
+							Constant* c = dyn_cast<Constant>(operand);
+							if(result.find(c) == result.end()) {
+								result[c] = set<Use*>();
+							}
+							
+							result[c].insert(use);
+						}
+					}
+				}
+			}
+		}
+		
+		return result;
 	}
 	
 	/**
@@ -679,52 +757,70 @@ struct StabilizerPass : public ModulePass {
 	 * \returns A map of all used values, each with a set of uses
 	 */
 	map<Constant*, set<Use*> > findPCRelativeUses(Function& f) {
+		static set<GlobalValue*> _gvs;
+		static map<Function*, set<Use*> > _uses;
+		
 		Module& m = *f.getParent();
-		set<GlobalValue*> gvs;
+		
+		set<GlobalValue*> new_gvs;
 		
 		// Functions are always possible to access with pc-relative instructions
 		for(Module::iterator g_iter = m.begin(); g_iter != m.end(); g_iter++) {
 			Function& g = *g_iter;
 			if(!g.isIntrinsic() && !g.getName().equals("__gxx_personality_v0")) {
-				gvs.insert(&g);
+				if(_gvs.find(&g) == _gvs.end()) {
+					new_gvs.insert(&g);
+				}
 			}
 		}
 		
-		// If the platform support pc-relative data accesses, include global variables too
 		if(isDataPCRelative(m)) {
 			for(Module::global_iterator iter = m.global_begin(); iter != m.global_end(); iter++) {
-				gvs.insert(&*iter);
+				if(_gvs.find(&*iter) == _gvs.end()) {
+					new_gvs.insert(&*iter);
+				}
 			}
 		}
 		
-		// Get all uses of all global values
-		set<Use*> uses;
-		for(set<GlobalValue*>::iterator gv_iter = gvs.begin(); gv_iter != gvs.end(); gv_iter++) {
+		// Get all uses of the new global values
+		for(set<GlobalValue*>::iterator gv_iter = new_gvs.begin(); gv_iter != new_gvs.end(); gv_iter++) {
 			GlobalValue* gv = *gv_iter;
-			
+
 			for(Value::use_iterator iter = gv->use_begin(); iter != gv->use_end(); iter++) {
 				Use* use = &iter.getUse();
-				
-				// If the use is in the function we're working on now
-				if(isUseInFunction(*use, f)) {
-					
-					// If the use is inside a constant expression, get the uses
-					// of the constant expression, recursively
-					set<Use*> lus = findInstructionUses(use);
-					for(set<Use*>::iterator lu_iter = lus.begin();
-						lu_iter != lus.end(); lu_iter++) {
-						
-						if(isUseInFunction(**lu_iter, f)) {
-							uses.insert(*lu_iter);
-						}
+
+				// If the use is inside a constant expression, get the uses
+				// of the constant expression, recursively
+				set<Use*> lus = findInstructionUses(use);
+				for(set<Use*>::iterator lu_iter = lus.begin(); lu_iter != lus.end(); lu_iter++) {
+					Use* use = *lu_iter;
+					User* user = use->getUser();
+					Instruction* i = dyn_cast<Instruction>(user);
+
+					assert(i != NULL);
+					assert(i->getParent() != NULL);
+					assert(i->getParent()->getParent() != NULL);
+
+					Function* containing = i->getParent()->getParent();
+
+					if(_uses.find(containing) == _uses.end()) {
+						_uses[containing] = set<Use*>();
 					}
+
+					/*if(!unfilled && _uses[containing].find(*lu_iter) == _uses[containing].end()) {
+						errs() << "Missed use of " << use->get()->getName() << "\n";
+					} else if(!unfilled) {
+						errs() << "Already had use of " << use->get()->getName() << "\n";
+					}*/
+
+					_uses[containing].insert(*lu_iter);
 				}
 			}
 		}
 
 		map<Constant*, set<Use*> > references;
 		
-		for(set<Use*>::iterator use_iter = uses.begin(); use_iter != uses.end(); use_iter++) {
+		for(set<Use*>::iterator use_iter = _uses[&f].begin(); use_iter != _uses[&f].end(); use_iter++) {
 			Use* use = *use_iter;
 			Value* v = use->get();
 			Constant* c = dyn_cast<Constant>(v);

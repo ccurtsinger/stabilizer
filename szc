@@ -32,15 +32,31 @@ parser.add_argument('input', nargs='+')
 # Do the parse
 args = parser.parse_args()
 
-# Populate the 'auto' platform selection
-if args.platform == 'auto':
+def getPlatform():
 	if util.get_platform().startswith('macosx'):
-		args.platform = 'osx'
+		return 'osx'
 	elif util.get_platform().startswith('linux'):
-		args.platform = 'linux'
+		return 'linux'
 	else:
-		print 'Unsupported platform: '+util.get_platform()
+		print 'Unsupported platform'
 		exit(2)
+
+def arg(flag, values):
+	if not isinstance(values, list):
+		values = [values]
+	
+	cmd = ''
+	for v in values:
+		if v == True:
+			cmd += ' -'+flag
+		elif v == False:
+			pass
+		else:
+			cmd += ' -'+flag+v
+	return cmd
+
+if args.platform == 'auto':
+	args.platform = getPlatform()
 
 STABILIZER_HOME = os.path.dirname(__file__)
 
@@ -53,8 +69,6 @@ else:
 opts = []
 
 args.l.append('stdc++')
-args.f.append('PIC')
-args.f.append('no-omit-frame-pointer')
 #args.v = True
 
 if 'code' in args.R:
@@ -74,114 +88,107 @@ if 'code' in args.R or 'heap' in args.R or 'stack' in args.R:
 	args.l.append('stabilizer')
 	opts.append('stabilize')
 
-def compile(i):
-	if i.endswith('.o') or i.endswith('.bc'):
-		return i
-
+def compile(input):
+	if input.endswith('.o'):
+		return input
+	
+	needsAssembly = False
+	
 	if args.lang == 'fortran':
 		cmd = 'gfortran -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
-		cmd += ' -o '+args.o+'.s'
-		args.frontend = 'gcc'
+		cmd += arg('o ', args.o+'.s')
+		needsAssembly = True
 		
 	elif args.frontend == 'gcc':
 		cmd = 'gcc -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
-		cmd += ' -o '+args.o+'.s'
-		
+		cmd += arg('o ', args.o+'s')
+		needsAssembly = True
+	
 	else:
 		cmd = 'clang -c -emit-llvm'
-		cmd += ' -o '+args.o+'.bc'
-
-	cmd += ' -O0'
-
-	if args.g:
-		cmd += ' -g'
-
-	for I in args.I:
-		cmd += ' -I'+I
+		cmd += arg('o ', args.o)
 	
-	for f in args.f:
-		cmd += ' -f'+f
-
-	for D in args.D:
-		cmd += ' -D'+D
-
-	cmd += ' '+i
-
+	cmd += arg('O', 0)
+	cmd += arg('g', args.g)
+	cmd += arg('I', args.I)
+	cmd += arg('f', args.f)
+	cmd += arg('D', args.D)
+	
+	cmd += ' '+input
+	
 	if args.v:
 		print cmd
 	os.system(cmd)
-
-	if args.frontend == 'gcc':
-		cmd = 'llvm-as -o '+args.o+'.bc '+args.o+'.s'
+	
+	if needsAssembly:
+		cmd = 'llvm-as -o ' + args.o + ' ' + args.o + '.s'
 		if args.v:
 			print cmd
 		os.system(cmd)
-
-	return args.o+'.bc'
-
-def transform(i):
-	if i.endswith('.o') or i.endswith('.opt.bc'):
-		return i
-
-	cmd = 'opt'
-		
-	cmd += ' -o='+args.o+'.opt.bc'
-
-	if args.O > 0:
-		cmd += ' -O'+str(args.O)
-
-	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.'+LIBSUFFIX
-
-	for opt in opts:
-		cmd += ' -'+opt
-
-	cmd += ' '+i
-
-	if args.v:
-		print cmd
-	os.system(cmd)
-
-	return args.o+'.opt.bc'
+	
+	return args.o
 
 def link(inputs):
-	if args.frontend == 'clang' or args.c:
-		cmd = 'clang -O0'
-	elif args.lang == 'fortran':
-		cmd = 'gfortran -O0'
-	elif args.frontend == 'gcc':
-		cmd = 'gcc -O0'
+	cmd = 'llvm-link -o ' + args.o + '.bc '
 
-	if args.g:
-		cmd += ' -g'
-
-	cmd += ' -o '+args.o
-	
-	for f in args.f:
-		cmd += ' -f'+f
-
-	if 'link' in args.R and len(inputs) > 1:
+	if 'link' in args.R:
 		random.shuffle(inputs)
-		print 'Random link order:', ' '.join(inputs)
-	
-	cmd += ' '+' '.join(inputs)
 
-	if args.c:
-		cmd += ' -c'
-	else:
-		for L in args.L:
-			cmd += ' -L'+L
-		
-		for l in args.l:
-			cmd += ' -l'+l
+	cmd += ' '.join(inputs)
 
 	if args.v:
 		print cmd
 	os.system(cmd)
+	return args.o + '.bc'
 
+def transform(input):
+	cmd = 'opt -o ' + args.o + '.opt.bc'
+	cmd += ' ' + input
+	
+	if args.O > 0:
+		cmd += ' -O'+str(args.O)
+	
+	cmd += ' -load='+STABILIZER_HOME+'/LLVMStabilizer.'+LIBSUFFIX
+	
+	cmd += arg('', opts)
+	
+	if args.v:
+		print cmd
+	os.system(cmd)
+	return args.o + '.opt.bc'
+
+def codegen(input):
+	cmd = 'llc -relocation-model=pic -disable-fp-elim'
+	cmd += ' -o ' + args.o + '.s'
+	cmd += ' ' + input
+	
+	if args.v:
+		print cmd
+	os.system(cmd)
+	
+	if args.lang == 'fortran':
+		cmd = 'gfortran'
+	else:
+		cmd = args.frontend
+	
+	cmd += ' ' + args.o + '.s'
+	
+	cmd += arg('o ', args.o)
+	cmd += arg('f', args.f)
+	cmd += arg('L', args.L)
+	cmd += arg('l', args.l)
+	
+	if args.v:
+		print cmd
+	os.system(cmd)
+	
 	return args.o
 
 # Build up program arguments
-bytecode_files = map(compile, args.input)
-transformed = map(transform, bytecode_files)
-link(transformed)
+object_files = map(compile, args.input)
+
+if not args.c:
+	linked = link(object_files)
+	transformed = transform(linked)
+	codegen(transformed)
 
