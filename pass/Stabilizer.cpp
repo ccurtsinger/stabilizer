@@ -515,7 +515,7 @@ struct StabilizerPass : public ModulePass {
 			GlobalVariable* relocationTable = new GlobalVariable(
 				m, 
 				relocationTableType, 
-				true,	// Yes, the table is constant
+				false,	// No, the table needs to be mutable
 				GlobalVariable::InternalLinkage, 
 				ConstantStruct::get(relocationTableType, referencedValues),
 				f.getName()+".relocation_table"

@@ -171,24 +171,25 @@ else:
 		values = []
 		for ext in exts:
 			for tune in tunes:
-				if (ext+'_'+tune) in columns and (tune not in results[benchmark] or ext not in results[benchmark][tune]):
-					values.append('')
-				elif args.norm:
-					if len(results[benchmark][tune][ext]) < 3:
+				if (ext+'_'+tune) in columns:
+					if (tune not in results[benchmark] or ext not in results[benchmark][tune]):
 						values.append('')
+					elif args.norm:
+						if len(results[benchmark][tune][ext]) < 3:
+							values.append('')
+						else:
+							(k2, p) = shapiro(results[benchmark][tune][ext])
+							values.append(p > 0.05)
+							#(A2, critical, sig) = anderson(results[benchmark][ext])
+							#values.append(A2 <= critical[1])
+					elif args.range:
+						avg = mean(results[benchmark][tune][ext])
+						up = max(results[benchmark][tune][ext]) - avg
+						down = avg - min(results[benchmark][tune][ext])
+						values.append(max(up / avg, down / avg))
+					elif args.len:
+						values.append(len(results[benchmark][tune][ext]))
 					else:
-						(k2, p) = shapiro(results[benchmark][tune][ext])
-						values.append(p > 0.05)
-						#(A2, critical, sig) = anderson(results[benchmark][ext])
-						#values.append(A2 <= critical[1])
-				elif args.range:
-					avg = mean(results[benchmark][tune][ext])
-					up = max(results[benchmark][tune][ext]) - avg
-					down = avg - min(results[benchmark][tune][ext])
-					values.append(max(up / avg, down / avg))
-				elif args.len:
-					values.append(len(results[benchmark][tune][ext]))
-				else:
-					values.append(mean(results[benchmark][tune][ext]))
+						values.append(mean(results[benchmark][tune][ext]))
 	
 		print ', '.join(map(pad, map(str, values)))

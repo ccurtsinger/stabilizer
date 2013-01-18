@@ -101,7 +101,7 @@ def compile(input):
 		
 	elif args.frontend == 'gcc':
 		cmd = 'gcc -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
-		cmd += arg('o ', args.o+'s')
+		cmd += arg('o ', args.o+'.s')
 		needsAssembly = True
 	
 	else:

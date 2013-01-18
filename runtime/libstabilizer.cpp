@@ -54,10 +54,6 @@ int main(int argc, char **argv) {
 	setHandler(SIGTRAP, onTrap);
 	setHandler(SIGALRM, onTimer);
 	setHandler(SIGSEGV, onFault);
-	setHandler(SIGINFO, onFault);
-	//setHandler(SIGBUS, onFault);
-	//setHandler(SIGABRT, onFault);
-	//setHandler(SIGILL, onFault);
 	
 	// Lazily relocate functions
 	for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
