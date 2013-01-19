@@ -365,52 +365,6 @@ struct StabilizerPass : public ModulePass {
 			}
 		}
 		
-		// Create a new basic block to load the stack pad size
-		BasicBlock* old_entry = &f.getEntryBlock();
-		BasicBlock* new_entry = BasicBlock::Create(m.getContext(), "new_entry", &f, old_entry);
-		
-		//////////////// New Entry ////////////////
-		
-		// Get a pointer to the count value (first element in the array)
-		vector<Value*> count_indices;
-		count_indices.push_back(getInt(m, 32, 0, false));
-		count_indices.push_back(getInt(m, 32, 0, false));
-		Value* count_ptr = GetElementPtrInst::CreateInBounds(stackPadTable, count_indices, "count_ptr", new_entry);
-		
-		// Load the count value
-		Value* count = new LoadInst(count_ptr, "count", new_entry);
-		
-		// Get a pointer to the current pad value
-		vector<Value*> pad_indices;
-		pad_indices.push_back(getInt(m, 32, 0, false));
-		pad_indices.push_back(count);
-		Value* pad_ptr = GetElementPtrInst::CreateInBounds(stackPadTable, pad_indices, "pad_ptr", new_entry);
-		
-		// Load the stack pad
-		Value* pad = new LoadInst(pad_ptr, "pad", new_entry);
-		
-		// Increment the count
-		BinaryOperator* new_count = BinaryOperator::CreateNUWAdd(
-			count,
-			getInt(m, 8, 1, false),
-			"new_count",
-			new_entry
-		);
-
-		new StoreInst(new_count, count_ptr, new_entry);
-		
-		Value* wide_pad = ZExtInst::CreateZExtOrBitCast(pad, getIntptrType(m), "", new_entry);
-		
-		// Multiply the pad by the required stack alignment
-		BinaryOperator* padSize = BinaryOperator::CreateNUWMul(
-			wide_pad,
-			getIntptr(m, 16, false),
-			"aligned_pad",
-			new_entry
-		);
-		
-		BranchInst::Create(old_entry, new_entry);
-		
 		//////////////////////////////////
 		
 		// Pad the stack before each callsite
@@ -418,6 +372,44 @@ struct StabilizerPass : public ModulePass {
 		for(vector<CallInst*>::iterator c_iter = calls.begin(); c_iter != calls.end(); c_iter++) {
 			CallInst* c = *c_iter;
 			Instruction* next = c->getNextNode();
+			
+			// Get a pointer to the count value (first element in the array)
+			vector<Value*> count_indices;
+			count_indices.push_back(getInt(m, 32, 0, false));
+			count_indices.push_back(getInt(m, 32, 0, false));
+			Value* count_ptr = GetElementPtrInst::CreateInBounds(stackPadTable, count_indices, "count_ptr", c);
+
+			// Load the count value
+			Value* count = new LoadInst(count_ptr, "count", c);
+
+			// Get a pointer to the current pad value
+			vector<Value*> pad_indices;
+			pad_indices.push_back(getInt(m, 32, 0, false));
+			pad_indices.push_back(count);
+			Value* pad_ptr = GetElementPtrInst::CreateInBounds(stackPadTable, pad_indices, "pad_ptr", c);
+
+			// Load the stack pad
+			Value* pad = new LoadInst(pad_ptr, "pad", c);
+
+			// Increment the count
+			BinaryOperator* new_count = BinaryOperator::CreateNUWAdd(
+				count,
+				getInt(m, 8, 1, false),
+				"new_count",
+				c
+			);
+
+			new StoreInst(new_count, count_ptr, c);
+
+			Value* wide_pad = ZExtInst::CreateZExtOrBitCast(pad, getIntptrType(m), "", c);
+
+			// Multiply the pad by the required stack alignment
+			BinaryOperator* padSize = BinaryOperator::CreateNUWMul(
+				wide_pad,
+				getIntptr(m, 16, false),
+				"aligned_pad",
+				c
+			);
 			
 			CallInst* oldStack = CallInst::Create(stacksave, "", c);
 			PtrToIntInst* oldStackInt = new PtrToIntInst(oldStack, getIntptrType(m), "", c);
