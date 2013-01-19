@@ -614,71 +614,8 @@ struct StabilizerPass : public ModulePass {
 	}
 	
 	/**
-	 * \brief Check if a use occurs inside a function
-	 * \arg use The use to check
-	 * \arg f The function we're looking in
-	 * \returns true if the use or any of its ancestors is an instruction in f
+	 * Check if a value is or contains a global value.
 	 */
-	bool isUseInFunction(Use& use, Function& f) {
-		User* user = use.getUser();
-		
-		if(isa<Instruction>(user)) {
-			Instruction* i = dyn_cast<Instruction>(user);
-			return i->getParent() != NULL && i->getParent()->getParent() == &f;
-			
-		} else {
-			for(Value::use_iterator iter = user->use_begin(); iter != user->use_end(); iter++) {
-				if(isUseInFunction(iter.getUse(), f)) {
-					return true;
-				}
-			}
-			
-			return false;
-		}
-	}
-	
-	/**
-	 * \brief Given a use, climb the hierarchy of uses until an instruction is reached.
-	 * 
-	 * When instruction I uses constexpr E, which uses global G:
-	 *  Given E's use of G, returns I's use of E.
-	 * 
-	 * \arg u The use of some global value
-	 * \returns The lowest-possible set of u's ancestor uses s.t. all users are Instructions
-	 */
-	set<Use*> findInstructionUses(Use* u) {
-		static map<Use*, set<Use*> > _cache;
-		
-		if(_cache.find(u) != _cache.end()) {
-			return _cache[u];
-		}
-		
-		User* user = u->getUser();
-		
-		set<Use*> lifted;
-		
-		if(isa<Instruction>(user)) {
-			// If the user is an instruction, we're done!
-			lifted.insert(u);
-			
-		} else {
-			// If not, get instruction uses of the user (recursively)
-			for(Value::use_iterator iter = user->use_begin(); iter != user->use_end(); iter++) {
-				Use* use_of_user = &iter.getUse();
-				set<Use*> lus = findInstructionUses(use_of_user);
-				
-				for(set<Use*>::iterator lu_iter = lus.begin(); lu_iter != lus.end(); lu_iter++) {
-					
-					lifted.insert(*lu_iter);
-				}
-			}
-		}
-		
-		_cache[u] = lifted;
-		
-		return lifted;
-	}
-	
 	bool containsGlobal(Value* v) {
 		if(isa<Function>(v)) {
 			Function* f = dyn_cast<Function>(v);
@@ -705,6 +642,12 @@ struct StabilizerPass : public ModulePass {
 		return false;
 	}
 	
+	/**
+	 * \brief Find all uses inside instructions that may result in PC-relative addressing.
+	 * 
+	 * \arg f The function to scan for PC-relative uses
+	 * \returns A map of all used values, each with a set of uses
+	 */
 	map<Constant*, set<Use*> > findPCRelativeUsesIn(Function& f) {
 		map<Constant*, set<Use*> > result;
 		
@@ -748,92 +691,6 @@ struct StabilizerPass : public ModulePass {
 		}
 		
 		return result;
-	}
-	
-	/**
-	 * \brief Find all uses inside instructions that may result in PC-relative addressing.
-	 * 
-	 * \arg f The function to scan for PC-relative uses
-	 * \returns A map of all used values, each with a set of uses
-	 */
-	map<Constant*, set<Use*> > findPCRelativeUses(Function& f) {
-		static set<GlobalValue*> _gvs;
-		static map<Function*, set<Use*> > _uses;
-		
-		Module& m = *f.getParent();
-		
-		set<GlobalValue*> new_gvs;
-		
-		// Functions are always possible to access with pc-relative instructions
-		for(Module::iterator g_iter = m.begin(); g_iter != m.end(); g_iter++) {
-			Function& g = *g_iter;
-			if(!g.isIntrinsic() && !g.getName().equals("__gxx_personality_v0")) {
-				if(_gvs.find(&g) == _gvs.end()) {
-					new_gvs.insert(&g);
-				}
-			}
-		}
-		
-		if(isDataPCRelative(m)) {
-			for(Module::global_iterator iter = m.global_begin(); iter != m.global_end(); iter++) {
-				if(_gvs.find(&*iter) == _gvs.end()) {
-					new_gvs.insert(&*iter);
-				}
-			}
-		}
-		
-		// Get all uses of the new global values
-		for(set<GlobalValue*>::iterator gv_iter = new_gvs.begin(); gv_iter != new_gvs.end(); gv_iter++) {
-			GlobalValue* gv = *gv_iter;
-
-			for(Value::use_iterator iter = gv->use_begin(); iter != gv->use_end(); iter++) {
-				Use* use = &iter.getUse();
-
-				// If the use is inside a constant expression, get the uses
-				// of the constant expression, recursively
-				set<Use*> lus = findInstructionUses(use);
-				for(set<Use*>::iterator lu_iter = lus.begin(); lu_iter != lus.end(); lu_iter++) {
-					Use* use = *lu_iter;
-					User* user = use->getUser();
-					Instruction* i = dyn_cast<Instruction>(user);
-
-					assert(i != NULL);
-					assert(i->getParent() != NULL);
-					assert(i->getParent()->getParent() != NULL);
-
-					Function* containing = i->getParent()->getParent();
-
-					if(_uses.find(containing) == _uses.end()) {
-						_uses[containing] = set<Use*>();
-					}
-
-					/*if(!unfilled && _uses[containing].find(*lu_iter) == _uses[containing].end()) {
-						errs() << "Missed use of " << use->get()->getName() << "\n";
-					} else if(!unfilled) {
-						errs() << "Already had use of " << use->get()->getName() << "\n";
-					}*/
-
-					_uses[containing].insert(*lu_iter);
-				}
-			}
-		}
-
-		map<Constant*, set<Use*> > references;
-		
-		for(set<Use*>::iterator use_iter = _uses[&f].begin(); use_iter != _uses[&f].end(); use_iter++) {
-			Use* use = *use_iter;
-			Value* v = use->get();
-			Constant* c = dyn_cast<Constant>(v);
-			
-			assert(c != NULL);
-			
-			if(references.find(c) == references.end()) {
-				references[c] = set<Use*>();
-			}
-			references[c].insert(use);
-		}
-		
-		return references;
 	}
 	
 	/**

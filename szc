@@ -95,17 +95,17 @@ def compile(input):
 	needsAssembly = False
 	
 	if args.lang == 'fortran':
-		cmd = 'gfortran -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
+		cmd = 'gfortran -O0 -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
 		cmd += arg('o ', args.o+'.s')
 		needsAssembly = True
 		
 	elif args.frontend == 'gcc':
-		cmd = 'gcc -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
+		cmd = 'gcc -O0 -fplugin=dragonegg -S -fplugin-arg-dragonegg-emit-ir'
 		cmd += arg('o ', args.o+'.s')
 		needsAssembly = True
 	
 	else:
-		cmd = 'clang -c -emit-llvm'
+		cmd = 'clang -O0 -c -emit-llvm'
 		cmd += arg('o ', args.o)
 	
 	cmd += arg('O', 0)
@@ -158,7 +158,7 @@ def transform(input):
 	return args.o + '.opt.bc'
 
 def codegen(input):
-	cmd = 'llc -relocation-model=pic -disable-fp-elim'
+	cmd = 'llc -O0 -relocation-model=pic -disable-fp-elim'
 	cmd += ' -o ' + args.o + '.s'
 	cmd += ' ' + input
 	
