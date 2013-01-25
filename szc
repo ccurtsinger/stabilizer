@@ -9,7 +9,7 @@ from distutils import util
 parser = argparse.ArgumentParser(description="Stabilizer Compiler Driver")
 
 # Which randomizations should be run
-parser.add_argument('-R', action='append', choices=['code', 'heap', 'stack', 'link'])
+parser.add_argument('-R', action='append', choices=['code', 'heap', 'stack', 'link'], default=[])
 
 # Driver control arguments
 parser.add_argument('-v', action='store_true')
