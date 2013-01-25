@@ -14,7 +14,7 @@ using namespace std;
 extern "C" int stabilizer_main(int argc, char **argv);
 
 int main(int argc, char** argv);
-extern "C" void stabilizer_ready();
+extern "C" int stabilizer_ready();
 
 void onTrap(int sig, siginfo_t* info, void* c);
 void onTimer(int sig, siginfo_t* info, void* c);
@@ -52,6 +52,7 @@ int main(int argc, char **argv) {
 	
 	// Register signal handlers
 	setHandler(SIGTRAP, onTrap);
+	setHandler(SIGILL, onTrap);
 	setHandler(SIGALRM, onTimer);
 	setHandler(SIGSEGV, onFault);
 	
@@ -120,7 +121,19 @@ extern "C" {
 		return powf(b, (float)e);
 	}
 	
-	void stabilizer_ready() {}
+	int stabilizer_ready() {
+		static int _count = 0;
+		_count++;
+		return _count;
+	}
+
+	void memset_i32(void* p, uint8_t val, uint32_t len, uint32_t align, bool isvolatile) {
+		memset(p, val, len);
+	}
+
+	void memset_i64(void* p, uint8_t val, uint64_t len, uint32_t align, bool isvolatile) {
+		memset(p, val, len);
+	}
 }
 
 void panic(void* ip, void** fp, bool quit) {
@@ -181,12 +194,14 @@ void panic(void* ip, void** fp, bool quit) {
 }
 
 void onTrap(int sig, siginfo_t* info, void* c) {
+#if !defined(PPC)
 	// Back up one instruction
 	SET_CONTEXT_IP(c, (intptr_t)GET_CONTEXT_IP(c)-1);
-	
+#endif
+
 	// Extract the trapped function (stored next to the trap instruction)
-	void** p = (void**)GET_CONTEXT_IP(c);
-	Function* f = (Function*)p[1];
+	FunctionHeader* h = (FunctionHeader*)GET_CONTEXT_IP(c);
+	Function* f = (Function*)h->obj;
 	
 	// If the trap was placed to trigger a re-randomization
 	if(rerandomizing) {

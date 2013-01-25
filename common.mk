@@ -1,6 +1,8 @@
 # Get the current OS and architecture
 OS ?= $(shell uname -s)
 CPU ?= $(shell uname -m)
+PLATFORM ?= $(OS).$(CPU)
+TARGET_PLATFORM ?= $(PLATFORM)
 
 # Set the default compilers and flags
 CC = clang
@@ -9,7 +11,11 @@ CFLAGS ?= -O3
 CXXFLAGS ?= $(CFLAGS)
 
 # Include platform-specific rules
-include $(ROOT)/platforms/$(OS).$(CPU).mk
+ifneq ($(CROSS_TARGET),)
+	include $(ROOT)/platforms/$(TARGET_PLATFORM).mk
+else
+	include $(ROOT)/platforms/$(PLATFORM).mk
+endif
 
 # Set the default shared library filename suffix
 SHLIB_SUFFIX ?= so

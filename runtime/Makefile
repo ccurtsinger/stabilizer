@@ -1,5 +1,5 @@
 ROOT = ..
-
+CROSS_TARGET = 1
 TARGETS = $(ROOT)/libstabilizer.$(SHLIB_SUFFIX)
 INCLUDE_DIRS = $(ROOT)/Heap-Layers \
     $(ROOT)/DieHard/src/include \
@@ -10,5 +10,5 @@ INCLUDE_DIRS = $(ROOT)/Heap-Layers \
 
 include $(ROOT)/common.mk
 
-CFLAGS += -Os -DNDEBUG
-CXXFLAGS += -Os -DNDEBUG
+CFLAGS += -Os -g
+CXXFLAGS += -Os -g

@@ -75,15 +75,15 @@ void InitLibcalls() {
 	libcall_map["llvm.memmove.i32"] = "memmove";
 	libcall_map["llvm.memmove.i64"] = "memmove";
 
-	libcall_map["llvm.memset.p0i8.i8"] =  "memset";
-	libcall_map["llvm.memset.p0i8.i16"] = "memset";
-	libcall_map["llvm.memset.p0i8.i32"] = "memset";
-	libcall_map["llvm.memset.p0i8.i64"] = "memset";
+	libcall_map["llvm.memset.p0i8.i8"] =  "memset_i8";
+	libcall_map["llvm.memset.p0i8.i16"] = "memset_i16";
+	libcall_map["llvm.memset.p0i8.i32"] = "memset_i32";
+	libcall_map["llvm.memset.p0i8.i64"] = "memset_i64";
 	
-	libcall_map["llvm.memset.i8"] =  "memset";
-	libcall_map["llvm.memset.i16"] = "memset";
-	libcall_map["llvm.memset.i32"] = "memset";
-	libcall_map["llvm.memset.i64"] = "memset";
+	libcall_map["llvm.memset.i8"] =  "memset_i8";
+	libcall_map["llvm.memset.i16"] = "memset_i16";
+	libcall_map["llvm.memset.i32"] = "memset_i32";
+	libcall_map["llvm.memset.i64"] = "memset_i64";
 
 	libcall_map["llvm.sqrt.f32"] = "sqrtf";
 	libcall_map["llvm.sqrt.f64"] = "sqrt";

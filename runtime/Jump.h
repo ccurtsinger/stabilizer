@@ -79,27 +79,24 @@ struct Jump {
  	} __attribute__((packed));
 
 	Jump(void *target) {
-		DEBUG("in Jump: ( %s:%d", __FILE__, __LINE__);
 		uintptr_t t = (uintptr_t)target;
 		uintptr_t pos_offset = t - (uintptr_t)this;
 		intptr_t neg_offset = (intptr_t)this - (intptr_t)t;
 
-		DEBUG("%p->%p +%p -%p", this, t, pos_offset, neg_offset);
-
 		if(t < 1<<25) {
-			DEBUG("  use absolute jump");
+			DEBUG("absolute jump");
 			ba = 0x48000002;
 			ba |= t & 0x03FFFFFCu;
 		} else if(pos_offset < 1<<25) {
 			DEBUG("  use positive offset");
 			ba = 0x48000000;
 			ba |= (uint32_t)pos_offset & 0x03FFFFFC;
-		} else if(neg_offset < 1<<25) {
+		} else if(-neg_offset < 1<<25) {
 			DEBUG("  use negative offset\n");
 			ba = 0x48000000;
-			ba |= (uint32_t)neg_offset & 0x03FFFFFC;
+			ba |= neg_offset & 0x03FFFFFC;
 		} else {
-			//printf("  jump target is out of range\n");
+			DEBUG("slow jump");
 			lis_to_r0=0x3c000000 | ((t>>16)&0xFFFFu);
  			ori_r0=0x60000000 | (t&0xFFFFu);
  			mtctr=0x7c0903a6;

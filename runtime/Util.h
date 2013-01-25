@@ -38,11 +38,19 @@
 
 #elif defined(__linux__)
 
-	#define GET_CONTEXT_IP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP])
-	#define GET_CONTEXT_FP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RBP])
-	#define GET_CONTEXT_SP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RSP])
+	#if defined(PPC)
+		#define GET_CONTEXT_IP(x) (((ucontext_t*)x)->uc_mcontext.regs->nip)
+		#define GET_CONTEXT_FP(x) (((ucontext_t*)x)->uc_mcontext.regs->gpr[PT_R1])
+		#define GET_CONTEXT_SP(x) (((ucontext_t*)x)->uc_mcontext.regs->gpr[PT_R1])
 
-	#define SET_CONTEXT_IP(x, y) ((((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP]) = (y))
+		#define SET_CONTEXT_IP(x, y) ((((ucontext_t*)x)->uc_mcontext.regs->nip) = (y))
+	#else
+		#define GET_CONTEXT_IP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP])
+		#define GET_CONTEXT_FP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RBP])
+		#define GET_CONTEXT_SP(x) (((ucontext_t*)x)->uc_mcontext.gregs[REG_RSP])
+
+		#define SET_CONTEXT_IP(x, y) ((((ucontext_t*)x)->uc_mcontext.gregs[REG_RIP]) = (y))
+	#endif
 
 #endif
 
@@ -61,7 +69,7 @@ static void flush_icache(void* begin, size_t size) {
 }
 
 #if defined(PPC)
-// TODO: define TRAP here
+#define TRAP ((void*)0x00000000)
 #elif defined(__i386__)
 #define TRAP ((void*)0x000000CC)
 #elif defined(__x86_64__)
