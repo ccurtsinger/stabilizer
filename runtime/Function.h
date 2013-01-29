@@ -9,12 +9,14 @@
 #include "Heap.h"
 #include "Pile.h"
 
+struct Function;
+
 union FunctionHeader {
 	uint8_t jmp[sizeof(Jump)];
 	
 	struct {
 		void* trap;
-		void* obj;
+		Function* obj;
 	};
 };
 

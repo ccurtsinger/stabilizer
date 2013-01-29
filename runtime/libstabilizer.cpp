@@ -78,9 +78,7 @@ int main(int argc, char **argv) {
 }
 
 extern "C" {
-	void stabilizer_register_function(void* base, void* limit, 
-		void* relocationTable, size_t tableSize, bool adjacent, uint8_t* stackTable) {
-		
+	void stabilizer_register_function(void* base, void* limit, void* relocationTable, size_t tableSize, bool adjacent, uint8_t* stackTable) {
 		Function* f = new Function(base, limit, relocationTable, tableSize, adjacent, stackTable);
 		functions.insert(f);
 	}
@@ -201,7 +199,7 @@ void onTrap(int sig, siginfo_t* info, void* c) {
 
 	// Extract the trapped function (stored next to the trap instruction)
 	FunctionHeader* h = (FunctionHeader*)GET_CONTEXT_IP(c);
-	Function* f = (Function*)h->obj;
+	Function* f = h->obj;
 	
 	// If the trap was placed to trigger a re-randomization
 	if(rerandomizing) {
@@ -263,16 +261,6 @@ void onTimer(int sig, siginfo_t* info, void* c) {
 
 void onFault(int sig, siginfo_t* info, void* c) {
 	printf("Fault at %p, accessing %p\n", (void*)GET_CONTEXT_IP(c), info->si_addr);
-	
-	if(sig == SIGSEGV) {
-		printf("SIGSEGV\n");
-	} else if(sig == SIGABRT) {
-		printf("SIGABRT\n");
-	} else if(sig == SIGILL) {
-		printf("SIGILL\n");
-		printf("  %p\n", *(void**)GET_CONTEXT_IP(c));
-	}
-
 	panic((void*)GET_CONTEXT_IP(c), (void**)GET_CONTEXT_FP(c), true);
 }
 
