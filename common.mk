@@ -59,6 +59,10 @@ export INDENT
 LIBFLAGS = $(addprefix -l, $(LIBS))
 INCFLAGS = $(addprefix -I, $(INCLUDE_DIRS))
 
+SHARED_LIB_TARGETS = $(filter %.$(SHLIB_SUFFIX), $(TARGETS))
+STATIC_LIB_TARGETS = $(filter %.a, $(TARGETS))
+OTHER_TARGETS = $(filter-out %.$(SHLIB_SUFFIX), $(filter-out %.a, $(TARGETS)))
+
 build:: $(TARGETS) $(INCLUDE_DIRS)
 
 obj/%.o:: %.c Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
@@ -81,11 +85,15 @@ obj/%.o:: %.C Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
 	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< -\> $@
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
 
-$(filter %.$(SHLIB_SUFFIX), $(TARGETS)):: $(OBJS) $(INCLUDE_DIRS) $(INCLUDES) Makefile $(ROOT)/common.mk
+$(SHARED_LIB_TARGETS):: $(OBJS) $(INCLUDE_DIRS) $(INCLUDES) Makefile $(ROOT)/common.mk
 	@echo $(INDENT)[$(notdir $(firstword $(CXXLIB)))] Linking $@
 	@$(CXXLIB) $(CXXFLAGS) $(INCFLAGS) $(OBJS) -o $@ $(LIBFLAGS)
 
-$(filter-out %.$(SHLIB_SUFFIX), $(TARGETS)):: $(OBJS) $(INCLUDE_DIRS) $(INCLUDES) Makefile $(ROOT)/common.mk
+$(STATIC_LIB_TARGETS):: $(OBJS) $(INCLUDE_DIRS) $(INCLUDES) Makefile $(ROOT)/common.mk
+	@echo $(INDENT)[ar] Linking $@
+	@ar rcs $@ $(OBJS)
+
+$(OTHER_TARGETS):: $(OBJS) $(INCLUDE_DIRS) $(INCLUDES) Makefile $(ROOT)/common.mk
 	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Linking $@
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) $(OBJS) -o $@ $(LIBFLAGS)
 
