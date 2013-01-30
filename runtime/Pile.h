@@ -7,28 +7,36 @@
 
 using namespace std;
 
+class Object {
+private:
+    void* _base;
+    void* _real;
+    size_t _sz;
+
+public:
+    Object(void* base, void* real, size_t sz) : _base(base), _real(real), _sz(sz) {}
+
+    ~Object() {
+        getCodeHeap()->free(_base);
+    }
+
+    bool contains(uintptr_t p) {
+        uintptr_t b = (uintptr_t)_base;
+        uintptr_t l = b + _sz;
+
+        return b <= p && p < l;
+    }
+
+    void* adjust(void* p) {
+        uintptr_t q = (uintptr_t)p;
+        q -= (intptr_t)_base;
+        q += (intptr_t)_real;
+        return (void*)q;
+    }
+};
+
 class Pile {
 private:
-	class Object {
-	private:
-		void* _base;
-		size_t _sz;
-	
-	public:
-		Object(void* base, size_t sz) : _base(base), _sz(sz) {}
-		
-		~Object() {
-			getCodeHeap()->free(_base);
-		}
-		
-		bool contains(uintptr_t p) {
-			uintptr_t b = (uintptr_t)_base;
-			uintptr_t l = b + _sz;
-			
-			return b <= p && p < l;
-		}
-	};
-	
 	static set<Object*>& getObjects() {
 		static set<Object*> _objects = set<Object*>();
 		return _objects;
@@ -40,10 +48,21 @@ private:
 	}
 	
 public:
-	static void add(void* p, size_t sz) {
-		Object* o = new Object(p, sz);
+	static void add(void* p, void* real, size_t sz) {
+		Object* o = new Object(p, real, sz);
 		getObjects().insert(o);
 	}
+    
+    static Object* find(void* p) {
+        for(set<Object*>::iterator iter = getObjects().begin(); iter != getObjects().end(); iter++) {
+			Object* o = *iter;
+			if(o->contains((uintptr_t)p)) {
+				return o;
+			}
+		}
+        
+        return NULL;
+    }
 	
 	static void mark(void* p) {
 		for(set<Object*>::iterator iter = getObjects().begin(); iter != getObjects().end(); iter++) {

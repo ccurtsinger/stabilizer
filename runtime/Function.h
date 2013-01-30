@@ -161,9 +161,8 @@ public:
 				// Copy the code and table (if any) from the previous location
 				memcpy(newBase, _currentLocation, getAllocationSize());
 
-				// TODO: Put the old location onto the GC pile
-				//printf("Discarding code location at %p\n", _currentLocation);
-				Pile::add(_currentLocation, getAllocationSize());
+				// Put the old location onto the GC pile
+				Pile::add(_currentLocation, _codeBase, getAllocationSize());
 			}
 
 			// Flush the icache at the new function location

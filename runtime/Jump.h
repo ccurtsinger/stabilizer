@@ -4,6 +4,9 @@
 #include <new>
 #include <stdint.h>
 
+#include "Arch.h"
+#include "Debug.h"
+
 struct X86Jump32 {
 	volatile uint8_t jmp_opcode;
 	volatile uint32_t jmp_offset;
@@ -14,16 +17,6 @@ struct X86Jump32 {
 	}
 
 } __attribute__((packed));
-
-#ifdef __i386__
-
-struct Jump : public X86Jump32 {
-	Jump(void *target) : X86Jump32(target) {}
-};
-
-#endif
-
-#ifdef __x86_64__
 
 struct X86Jump64 {
 	volatile uint32_t sub_8_rsp;
@@ -48,13 +41,13 @@ struct X86Jump64 {
 	}
 } __attribute__((packed));
 
-struct Jump {
+struct X86_64Jump {
 	union {
 		uint8_t jmp32[sizeof(X86Jump32)];
 		uint8_t jmp64[sizeof(X86Jump64)];
 	};
 	
-	Jump(void *target) {
+	X86_64Jump(void *target) {
 		if((uintptr_t)target - (uintptr_t)this <= 0x00000000FFFFFFFFu || (uintptr_t)this - (uintptr_t)target <= 0x00000000FFFFFFFFu) {
 			new(this) X86Jump32(target);
 		} else {
@@ -63,11 +56,7 @@ struct Jump {
 	}
 } __attribute__((packed));
 
-#endif
-
-#ifdef PPC
-
-struct Jump {
+struct PPCJump {
 	union {
  		uint32_t ba;
  		struct{
@@ -78,7 +67,7 @@ struct Jump {
  		};
  	} __attribute__((packed));
 
-	Jump(void *target) {
+	PPCJump(void *target) {
 		uintptr_t t = (uintptr_t)target;
 		uintptr_t pos_offset = t - (uintptr_t)this;
 		intptr_t neg_offset = (intptr_t)this - (intptr_t)t;
@@ -105,6 +94,8 @@ struct Jump {
 	}
 } __attribute__((packed));
 
-#endif
+_X86(typedef X86Jump32 Jump);
+_X86_64(typedef X86_64Jump Jump);
+_PPC(typedef PPCJump Jump);
 
 #endif

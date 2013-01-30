@@ -6,22 +6,23 @@
 #include <execinfo.h>
 
 #include "Function.h"
+#include "Debug.h"
 #include "Heap.h"
 #include "Pile.h"
+#include "Context.h"
 
 using namespace std;
 
 extern "C" int stabilizer_main(int argc, char **argv);
 
 int main(int argc, char** argv);
-extern "C" int stabilizer_ready();
 
-void onTrap(int sig, siginfo_t* info, void* c);
-void onTimer(int sig, siginfo_t* info, void* c);
-void onFault(int sig, siginfo_t* info, void* c);
+void onTrap(int sig, siginfo_t* info, Context c);
+void onTimer(int sig, siginfo_t* info, Context c);
+void onFault(int sig, siginfo_t* info, Context c);
 
-static inline void setTimer(int msec);
-static inline void setHandler(int sig, void(*fn)(int, siginfo_t*, void*));
+void setTimer(int msec);
+void setHandler(int sig, void(*fn)(int, siginfo_t*, Context));
 
 typedef void(*ctor_t)();
 
@@ -48,38 +49,45 @@ void** topFrame = NULL;
  * 6. Invoke stabilizer_main
  */
 int main(int argc, char **argv) {
+    DEBUG("Initializing Stabilizer");
+    
 	topFrame = (void**)__builtin_frame_address(0);
+    DEBUG("Stack top is at %p", topFrame);
 	
 	// Register signal handlers
-	setHandler(SIGTRAP, onTrap);
-	setHandler(SIGILL, onTrap);
+	_AnyX86(setHandler(SIGTRAP, onTrap));
+	_PPC(setHandler(SIGILL, onTrap));
 	setHandler(SIGALRM, onTimer);
 	setHandler(SIGSEGV, onFault);
+    DEBUG("Signal handlers installed");
 	
 	// Lazily relocate functions
 	for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
 		Function* f = *iter;
 		f->setTrap();
 	}
+    DEBUG("Trapped all functions");
 	
 	// Set the re-randomization timer
 	setTimer(interval);
-	
-	// Call a dummy function so I can trap after startup but before execution of any randomized code
-	stabilizer_ready();
+    DEBUG("Set re-randomization timer");
 	
 	// Call all constructors
 	for(vector<ctor_t>::iterator i = constructors.begin(); i != constructors.end(); i++) {
 		(*i)();
 	}
+    DEBUG("Finished with program constructors");
 	
 	// Call the old main function
-	return stabilizer_main(argc, argv);
+	int r = stabilizer_main(argc, argv);
+    DEBUG("Shutting down");
+    
+    return r;
 }
 
 extern "C" {
-	void stabilizer_register_function(void* base, void* limit, void* relocationTable, size_t tableSize, bool adjacent, uint8_t* stackTable) {
-		Function* f = new Function(base, limit, relocationTable, tableSize, adjacent, stackTable);
+	void stabilizer_register_function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool adjacent, uint8_t* stackTable) {
+		Function* f = new Function(codeBase, codeLimit, tableBase, tableSize, adjacent, stackTable);
 		functions.insert(f);
 	}
 
@@ -112,111 +120,35 @@ extern "C" {
 	}
 
 	void reportDoubleFreeError() {
-		abort();
-	}
-	
-	float powif(float b, int e) {
-		return powf(b, (float)e);
-	}
-	
-	int stabilizer_ready() {
-		static int _count = 0;
-		_count++;
-		return _count;
-	}
-
-	void memset_i32(void* p, uint8_t val, uint32_t len, uint32_t align, bool isvolatile) {
-		memset(p, val, len);
-	}
-
-	void memset_i64(void* p, uint8_t val, uint64_t len, uint32_t align, bool isvolatile) {
-		memset(p, val, len);
+        ABORT("Double free error");
 	}
 }
 
-void panic(void* ip, void** fp, bool quit) {
-	void* real_buffer[100];
-	void* debug_buffer[100];
-	bool current[100];
-	
-	real_buffer[0] = ip;
-	
-	size_t num = 1;
-	while(fp != topFrame) {
-		real_buffer[num] = fp[1];
-		fp = (void**)fp[0];
-		num++;
-	}
-	
-	// Find any relocated functions in the backtrace and rewrite them to
-	// the original code location.
-	for(size_t i=0; i<num; i++) {
-		void* p = real_buffer[i];
-		debug_buffer[i] = p;
-		current[i] = true;
-		
-		for(set<Function*>::iterator iter = functions.begin(); iter != functions.end(); iter++) {
-			Function* f = *iter;
-			f->selfCheck();
-			if(f->getCurrentLocation() != NULL) {
-				uintptr_t offset = (uintptr_t)p - (uintptr_t)f->getCurrentLocation();
-				if(offset < f->getCodeSize()) {
-					debug_buffer[i] = (void*)((uintptr_t)f->getCodeBase() + offset);
-				} else {
-					/*offset = (uintptr_t)p - (uintptr_t)f->getOldLocation();
-					if(offset < f->getCodeSize()) {
-						debug_buffer[i] = (void*)((uintptr_t)f->getCodeBase() + offset);
-						current[i] = false;
-					}*/
-					// TODO: Scan the GC pile for matching functions and rewrite those addresses
-				}
-			}
-		}
-	}
-	
-	char** strings = backtrace_symbols(debug_buffer, num);
-
-    if (strings == NULL) {
-        perror("backtrace_symbols");
-		abort();
-    }
-	
-	for(size_t i=0; i<num; i++) {
-		printf("%s [at %p%s]\n", strings[i], real_buffer[i], current[i] ? "" : " OLD!");
-	}
-	
-	free(strings);
-	if(quit) {
-		abort();
-	}
-}
-
-void onTrap(int sig, siginfo_t* info, void* c) {
-#if !defined(PPC)
-	// Back up one instruction
-	SET_CONTEXT_IP(c, (intptr_t)GET_CONTEXT_IP(c)-1);
-#endif
+void onTrap(int sig, siginfo_t* info, Context c) {
+	// Back up one byte on x86/x86_64
+    _AnyX86(c.ip() = (void*)((uintptr_t)c.ip() - 1));
 
 	// Extract the trapped function (stored next to the trap instruction)
-	FunctionHeader* h = (FunctionHeader*)GET_CONTEXT_IP(c);
+    FunctionHeader* h = (FunctionHeader*)c.ip();
 	Function* f = h->obj;
 	
 	// If the trap was placed to trigger a re-randomization
 	if(rerandomizing) {
+        DEBUG("Re-randomization started after trap on %p", c.ip());
 		live_functions.empty();
 		
 		// Mark all on-stack function locations as used
-		void** fp = (void**)GET_CONTEXT_FP(c);
-		while(fp != topFrame) {
-			Pile::mark(fp[1]);
-			fp = (void**)fp[0];
+        Stack s = c.stack();
+        while(s.fp() != topFrame) {
+			Pile::mark(s.ret());
+            s++;
 		}
 		
 		// Mark the current instruction pointer as used
-		Pile::mark((void*)GET_CONTEXT_IP(c));
+		Pile::mark((void*)c.ip());
 		
 		// Mark the top return address on the stack as used
-		Pile::mark(*(void**)GET_CONTEXT_SP(c));
+		Pile::mark(*(void**)c.sp());
 		
 		Pile::sweep();
 		
@@ -228,15 +160,18 @@ void onTrap(int sig, siginfo_t* info, void* c) {
 	f->relocate(relocationStep);
 	live_functions.insert(f);
 
-	SET_CONTEXT_IP(c, (uintptr_t)f->getCurrentLocation());
+    c.ip() = f->getCurrentLocation();
 }
 
-void onTimer(int sig, siginfo_t* info, void* c) {
+void onTimer(int sig, siginfo_t* info, Context c) {
+    DEBUG("Re-randomization timer fired at %p", c.ip());
+    
 	relocationStep++;
 
-	uintptr_t ip = (uintptr_t)GET_CONTEXT_IP(c);
+	uintptr_t ip = (uintptr_t)c.ip();
 	
 	if(functions.size() == 0) {
+        DEBUG("Re-randomizing stack pad tables");
 		for(set<uint8_t*>::iterator iter = stack_tables.begin(); iter != stack_tables.end(); iter++) {
 			uint8_t* table = *iter;
 			for(size_t i=0; i<256; i++) {
@@ -247,24 +182,26 @@ void onTimer(int sig, siginfo_t* info, void* c) {
 		setTimer(interval);
 		
 	} else {
+        DEBUG("Placing traps");
 		for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end(); iter++) {
 			Function* f = *iter;
 
 			if((uintptr_t)f->getCodeBase() > ip || ip - (uintptr_t)f->getCodeBase() > sizeof(Jump)) {
 				f->setTrap();
-			}
+			} else {
+                DEBUG("Skipping trap at %p. Overlaps with return from timer handler.", f->getCodeBase());
+            }
 		}
 	}
 	
 	rerandomizing = true;
 }
 
-void onFault(int sig, siginfo_t* info, void* c) {
-	printf("Fault at %p, accessing %p\n", (void*)GET_CONTEXT_IP(c), info->si_addr);
-	panic((void*)GET_CONTEXT_IP(c), (void**)GET_CONTEXT_FP(c), true);
+void onFault(int sig, siginfo_t* info, Context c) {
+    ABORT("Fault at %p, accessing address %p", c.ip(), info->si_addr);
 }
 
-static inline void setTimer(int msec) {
+void setTimer(int msec) {
 	struct itimerval timer;
 
 	timer.it_value.tv_sec = (msec - msec % 1000) / 1000;
@@ -275,9 +212,9 @@ static inline void setTimer(int msec) {
 	setitimer(ITIMER_REAL, &timer, 0);
 }
 
-static inline void setHandler(int sig, void(*fn)(int, siginfo_t*, void*)) {
+void setHandler(int sig, void(*fn)(int, siginfo_t*, Context)) {
 	struct sigaction sa;
-	sa.sa_sigaction = fn;
+	sa.sa_sigaction = (void(*)(int, siginfo_t*, void*))fn;
 	sa.sa_flags = SA_SIGINFO;
 	sigaction(sig, &sa, NULL);
 }
