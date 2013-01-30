@@ -9,6 +9,3 @@ INCLUDE_DIRS = $(ROOT)/Heap-Layers \
     $(ROOT)/DieHard/src/include/util
 
 include $(ROOT)/common.mk
-
-CFLAGS += -Os -g
-CXXFLAGS += -Os -g

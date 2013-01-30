@@ -7,7 +7,7 @@ TARGET_PLATFORM ?= $(PLATFORM)
 # Set the default compilers and flags
 CC = clang
 CXX = clang++
-CFLAGS ?= -O3
+CFLAGS ?= -Os
 CXXFLAGS ?= $(CFLAGS)
 
 # Include platform-specific rules
@@ -33,7 +33,7 @@ INCLUDE_DIRS ?=
 RECURSIVE_TARGETS ?= clean build
 
 # Build by default
-all: build
+all: debug
 
 # Just remove the targets
 clean::
@@ -63,44 +63,50 @@ SHARED_LIB_TARGETS = $(filter %.$(SHLIB_SUFFIX), $(TARGETS))
 STATIC_LIB_TARGETS = $(filter %.a, $(TARGETS))
 OTHER_TARGETS = $(filter-out %.$(SHLIB_SUFFIX), $(filter-out %.a, $(TARGETS)))
 
+release: DEBUG=
+release: build
+
+debug: DEBUG=1
+debug: build
+
 build:: $(TARGETS) $(INCLUDE_DIRS)
 
 obj/%.o:: %.c Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
 	@mkdir -p obj
-	@echo $(INDENT)[$(notdir $(firstword $(CC)))] Compiling $< -\> $@
-	@$(CC) $(CFLAGS) $(INCFLAGS) -c $< -o $@
+	@echo $(INDENT)[$(notdir $(firstword $(CC)))] Compiling $< for $(if $(DEBUG),Debug,Release) build
+	@$(CC) $(CFLAGS) $(if $(DEBUG),-g,-DNDEBUG) $(INCFLAGS) -c $< -o $@
 
 obj/%.o:: %.cpp Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
 	@mkdir -p obj
-	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< -\> $@
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
+	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< for $(if $(DEBUG),Debug,Release) build
+	@$(CXX) $(CXXFLAGS) $(if $(DEBUG),-g,-DNDEBUG) $(INCFLAGS) -c $< -o $@
 	
 obj/%.o:: %.cc Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
 	@mkdir -p obj
-	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< -\> $@
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
+	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< for $(if $(DEBUG),Debug,Release) build
+	@$(CXX) $(CXXFLAGS) $(if $(DEBUG),-g,-DNDEBUG) $(INCFLAGS) -c $< -o $@
 	
 obj/%.o:: %.C Makefile $(ROOT)/common.mk $(INCLUDE_DIRS) $(INCLUDES)
 	@mkdir -p obj
-	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< -\> $@
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
+	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Compiling $< for $(if $(DEBUG),Debug,Release) build
+	@$(CXX) $(CXXFLAGS) $(if $(DEBUG),-g,-DNDEBUG) $(INCFLAGS) -c $< -o $@
 
 $(SHARED_LIB_TARGETS):: $(OBJS) $(INCLUDE_DIRS) $(INCLUDES) Makefile $(ROOT)/common.mk
-	@echo $(INDENT)[$(notdir $(firstword $(CXXLIB)))] Linking $@
+	@echo $(INDENT)[$(notdir $(firstword $(CXXLIB)))] Linking $@ for $(if $(DEBUG),Debug,Release) build
 	@$(CXXLIB) $(CXXFLAGS) $(INCFLAGS) $(OBJS) -o $@ $(LIBFLAGS)
 
 $(STATIC_LIB_TARGETS):: $(OBJS) $(INCLUDE_DIRS) $(INCLUDES) Makefile $(ROOT)/common.mk
-	@echo $(INDENT)[ar] Linking $@
+	@echo $(INDENT)[ar] Linking $@ for $(if $(DEBUG),Debug,Release) build
 	@ar rcs $@ $(OBJS)
 
 $(OTHER_TARGETS):: $(OBJS) $(INCLUDE_DIRS) $(INCLUDES) Makefile $(ROOT)/common.mk
-	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Linking $@
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) $(OBJS) -o $@ $(LIBFLAGS)
+	@echo $(INDENT)[$(notdir $(firstword $(CXX)))] Linking $@ for $(if $(DEBUG),Debug,Release) build
+	@$(CXX) $(CXXFLAGS) $(if $(DEBUG),-g,-DNDEBUG) $(INCFLAGS) $(OBJS) -o $@ $(LIBFLAGS)
 
 $(RECURSIVE_TARGETS)::
 	@for dir in $(DIRS); do \
 	  echo "$(INDENT)[$@] Entering $$dir"; \
-	  $(MAKE) -C $$dir $@; \
+	  $(MAKE) -C $$dir $@ DEBUG=$(DEBUG); \
 	done
 
 $(ROOT)/Heap-Layers:
