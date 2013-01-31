@@ -3,6 +3,7 @@ DieHard
 
 LLVMStabilizer.so
 LLVMStabilizer.dylib
+libstabilizer.a
 libstabilizer.so
 libstabilizer.dylib
 
