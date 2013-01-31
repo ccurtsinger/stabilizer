@@ -6,32 +6,49 @@
 
 #include "Util.h"
 #include "Jump.h"
+#include "Trap.h"
 #include "Heap.h"
 #include "Pile.h"
+#include "MemRange.h"
 
 struct Function;
 
-union FunctionHeader {
-	uint8_t jmp[sizeof(Jump)];
-	
-	struct {
-		void* trap;
-		Function* obj;
-	};
+struct FunctionHeader {
+private:
+    union {
+    	uint8_t _jmp[sizeof(Jump)];
+        uint8_t _trap[sizeof(Trap)];
+    };
+    
+	Function* _f;
+    
+public:
+    FunctionHeader(Function* f) : _f(f) {}
+    
+    void jumpTo(void* target) {
+        new(_jmp) Jump(target);
+    }
+    
+    void trap() {
+        new(_trap) Trap();
+    }
+    
+    Function* getFunction() {
+        return _f;
+    }
 };
 
 struct Function {
 private:
-	void* _codeBase;		//< The address of the function
-	size_t _codeSize;		//< The size of the function (code only)
-	
-	void* _tableBase;		//< The address of this function's relocation table
-	size_t _tableSize;		//< The size of this function's relocation table
+    MemRange _code;
+    MemRange _table;
+    FunctionHeader* _header;
+    FunctionHeader _savedHeader;
+    
 	bool _tableAdjacent;	//< If true, the relocation table should be placed next to the function
 	
 	uint8_t* _stackPadTable;	//< The base of the 256-entry stack pad table for this function
 	
-	FunctionHeader _savedHeader;	//< The original contents of the function header
 	bool _trapped;			//< If true, the function will trap when called
 	
 	size_t _lastRelocation;	//< The step number for this function's last relocation
@@ -43,8 +60,8 @@ private:
 	 * \arg target The destination of the jump instruction
 	 */
 	inline void forward(void* target) {
-		new(getCodeBase()) Jump(target);
-		flush_icache(getCodeBase(), sizeof(Jump));
+        _header->jumpTo(target);
+		flush_icache(_header, sizeof(FunctionHeader));
 
 		_trapped = false;
 	}
@@ -74,27 +91,23 @@ public:
 	* \arg tableSize The size of the function's relocation table
 	* \arg tableAdjacent If true, the relocation table should be placed immediately after the function
 	*/
-	inline Function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool tableAdjacent, uint8_t* stackPadTable) {
-		this->_codeBase = codeBase;
-		this->_codeSize = (uintptr_t)codeLimit - (uintptr_t)codeBase;
-		this->_tableBase = tableBase;
-		this->_tableSize = tableSize;
+	inline Function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool tableAdjacent, uint8_t* stackPadTable) :
+        _code(codeBase, codeLimit), _table(tableBase, tableSize), _savedHeader(*(FunctionHeader*)_code.base()) {
+        
 		this->_tableAdjacent = tableAdjacent;
 		this->_stackPadTable = stackPadTable;
 		this->_lastRelocation = 0;
 		this->_currentLocation = NULL;
 
-		// Make a copy of the function header
-		_savedHeader = *(FunctionHeader*)codeBase;
-
 		// Make the function header writable
-		uintptr_t pageBase = (uintptr_t)ALIGN_DOWN(_codeBase, PAGESIZE);
-		uintptr_t pageLimit = (uintptr_t)ALIGN_UP((uintptr_t)_codeBase + _codeSize, PAGESIZE);
-		
-		if(mprotect((void*)pageBase, pageLimit - pageBase, PROT_READ | PROT_WRITE | PROT_EXEC)) {
+		if(mprotect(_code.pageBase(), _code.pageSize(), PROT_READ | PROT_WRITE | PROT_EXEC)) {
 			perror("Unable make code writable");
 			abort();
 		}
+        
+        // Make a copy of the function header
+        _savedHeader = *(FunctionHeader*)_code.base();
+        _header = new(_code.base()) FunctionHeader(this);
 	}
 	
 	/**
@@ -103,18 +116,6 @@ public:
 	inline ~Function() {
 		if(_currentLocation != NULL) {
 			getCodeHeap()->free(_currentLocation);
-		}
-	}
-	
-	/**
-	 * Check the integrity of the current function location
-	 */
-	inline void selfCheck() {
-		if(_currentLocation != NULL && _tableAdjacent) {
-			uint8_t* p = (uint8_t*)_currentLocation;
-			for(size_t i=0; i<_tableSize; i++) {
-				assert(p[_codeSize+i] == ((uint8_t*)_tableBase)[i]);
-			}
 		}
 	}
 	
@@ -137,15 +138,15 @@ public:
 			// If the function hasn't been relocated yet, build the relocated code from parts
 			if(_currentLocation == NULL) {
 				// Copy the code from the original function
-				memcpy(newBase, _codeBase, _codeSize);
+				memcpy(newBase, _code.base(), _code.size());
 
 				// Patch in the saved header, since the original has been overwritten
 				*(FunctionHeader*)newBase = _savedHeader;
 				
 				// If there is a stack pad table, move it to a random location
 				if(_stackPadTable != NULL) {
-					uintptr_t* table = (uintptr_t*)_tableBase;
-					for(size_t i=0; i<_tableSize; i+=sizeof(uintptr_t)) {
+					uintptr_t* table = (uintptr_t*)_table.base();
+					for(size_t i=0; i<_table.size(); i+=sizeof(uintptr_t)) {
 						if(table[i] == (uintptr_t)_stackPadTable) {
 							table[i] = (uintptr_t)getDataHeap()->malloc(256);
 						}
@@ -154,7 +155,7 @@ public:
 
 				// Copy the relocation table, if needed
 				if(_tableAdjacent) {
-					memcpy(&newBase[_codeSize], _tableBase, _tableSize);
+					memcpy(&newBase[_code.size()], _table.base(), _table.size());
 				}
 
 			} else {
@@ -162,11 +163,11 @@ public:
 				memcpy(newBase, _currentLocation, getAllocationSize());
 
 				// Put the old location onto the GC pile
-				Pile::add(_currentLocation, _codeBase, getAllocationSize());
+				Pile::add(_currentLocation, _code.base(), getAllocationSize());
 			}
 
 			// Flush the icache at the new function location
-			flush_icache(newBase, _codeSize);
+			flush_icache(newBase, _code.size());
 
 			// Record the current location
 			_currentLocation = newBase;
@@ -196,27 +197,24 @@ public:
 	 */
 	inline void setTrap() {
 		if(!_trapped) {
-			FunctionHeader* header = (FunctionHeader*)getCodeBase();
-			header->trap = TRAP;
-			header->obj = this;
-
+            _header->trap();
 			_trapped = true;
 		}
 	}
 	
 	inline void* getCodeBase() {
-		return _codeBase;
+		return _code.base();
 	}
 	
 	inline size_t getCodeSize() {
-		return _codeSize;
+		return _code.size();
 	}
 	
 	inline size_t getAllocationSize() {
 		if(_tableAdjacent) {
-			return _codeSize + _tableSize;
+			return _code.size() + _table.size();
 		} else {
-			return _codeSize;
+			return _code.size();
 		}
 	}
 	

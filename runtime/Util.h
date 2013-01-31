@@ -23,9 +23,6 @@
 #define CODE_ALIGN 128
 #endif
 
-#define ALIGN_DOWN(x, y) (void*)((uintptr_t)(x) - ((uintptr_t)(x) % (y)))
-#define ALIGN_UP(x, y) ALIGN_DOWN(((uintptr_t)x + y - 1), y)
-
 static void flush_icache(void* begin, size_t size) {
     _PPC(
         uintptr_t p = (uintptr_t)begin & ~15UL;
@@ -36,8 +33,6 @@ static void flush_icache(void* begin, size_t size) {
         asm("isync");
     )
 }
-
-#define TRAP _PPC((void*)0x0) _AnyX86((void*)0xCC)
 
 static inline uint8_t getRandomByte() {
 	static RandomNumberGenerator _rng;

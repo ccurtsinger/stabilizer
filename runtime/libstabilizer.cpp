@@ -55,8 +55,7 @@ int main(int argc, char **argv) {
     DEBUG("Stack top is at %p", topFrame);
 	
 	// Register signal handlers
-	_AnyX86(setHandler(SIGTRAP, onTrap));
-	_PPC(setHandler(SIGILL, onTrap));
+	setHandler(Trap::TrapSignal, onTrap);
 	setHandler(SIGALRM, onTimer);
 	setHandler(SIGSEGV, onFault);
     DEBUG("Signal handlers installed");
@@ -125,12 +124,12 @@ extern "C" {
 }
 
 void onTrap(int sig, siginfo_t* info, Context c) {
-	// Back up one byte on x86/x86_64
-    _AnyX86(c.ip() = (void*)((uintptr_t)c.ip() - 1));
+	// Back up over the trap instruction
+    c.ip() = (void*)((uintptr_t)c.ip() - Trap::TrapAdjust);
 
 	// Extract the trapped function (stored next to the trap instruction)
     FunctionHeader* h = (FunctionHeader*)c.ip();
-	Function* f = h->obj;
+	Function* f = h->getFunction();
 	
 	// If the trap was placed to trigger a re-randomization
 	if(rerandomizing) {
@@ -167,8 +166,6 @@ void onTimer(int sig, siginfo_t* info, Context c) {
     DEBUG("Re-randomization timer fired at %p", c.ip());
     
 	relocationStep++;
-
-	uintptr_t ip = (uintptr_t)c.ip();
 	
 	if(functions.size() == 0) {
         DEBUG("Re-randomizing stack pad tables");
@@ -185,12 +182,11 @@ void onTimer(int sig, siginfo_t* info, Context c) {
         DEBUG("Placing traps");
 		for(set<Function*>::iterator iter = live_functions.begin(); iter != live_functions.end(); iter++) {
 			Function* f = *iter;
-
-			if((uintptr_t)f->getCodeBase() > ip || ip - (uintptr_t)f->getCodeBase() > sizeof(Jump)) {
-				f->setTrap();
-			} else {
-                DEBUG("Skipping trap at %p. Overlaps with return from timer handler.", f->getCodeBase());
+            if(c.ip() == f->getCodeBase()) {
+                DEBUG("Forwarding from trap at %p", c.ip());
+                c.ip() = f->getCurrentLocation();
             }
+            f->setTrap();
 		}
 	}
 	
