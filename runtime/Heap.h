@@ -25,16 +25,7 @@ class CodeSource : public SizeHeap<FreelistHeap<BumpAlloc<CodeSize, MMapSource<C
 typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<DataShuffle, DataSource>, DataSource> > DataHeapType;
 typedef ANSIWrapper<KingsleyHeap<ShuffleHeap<CodeShuffle, CodeSource>, CodeSource> > CodeHeapType;
 	
-inline static DataHeapType* getDataHeap() {
-	static char buf[sizeof(DataHeapType)];
-	static DataHeapType* _theDataHeap = new (buf) DataHeapType;
-	return _theDataHeap;
-}
-
-inline static CodeHeapType* getCodeHeap() {
-	static char buf[sizeof(CodeHeapType)];
-	static CodeHeapType* _theCodeHeap = new (buf) CodeHeapType;
-	return _theCodeHeap;
-}
+DataHeapType* getDataHeap();
+CodeHeapType* getCodeHeap();
 
 #endif

@@ -44,9 +44,16 @@ public:
         return (size_t)(_limit - _base);
     }
     
+    inline size_t offsetOf(void* p) {
+        return (uintptr_t)p - _base;
+    }
+    
+    inline void* offsetIn(size_t offset) {
+        return (void*)(_base + offset);
+    }
+    
     inline bool contains(void* p) {
-        uintptr_t q = (uintptr_t)p;
-        return q >= _base && q < _limit;
+        return offsetOf(p) < size();
     }
 };
 

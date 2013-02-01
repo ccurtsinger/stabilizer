@@ -6,9 +6,9 @@
 #include <execinfo.h>
 
 #include "Function.h"
+#include "FunctionLocation.h"
 #include "Debug.h"
 #include "Heap.h"
-#include "Pile.h"
 #include "Context.h"
 
 using namespace std;
@@ -139,17 +139,17 @@ void onTrap(int sig, siginfo_t* info, Context c) {
 		// Mark all on-stack function locations as used
         Stack s = c.stack();
         while(s.fp() != topFrame) {
-			Pile::mark(s.ret());
+			FunctionLocation::mark(s.ret());
             s++;
 		}
 		
 		// Mark the current instruction pointer as used
-		Pile::mark((void*)c.ip());
+		FunctionLocation::mark((void*)c.ip());
 		
 		// Mark the top return address on the stack as used
-		Pile::mark(*(void**)c.sp());
+		FunctionLocation::mark(*(void**)c.sp());
 		
-		Pile::sweep();
+		FunctionLocation::sweep();
 		
 		rerandomizing = false;
 		setTimer(interval);
@@ -159,7 +159,7 @@ void onTrap(int sig, siginfo_t* info, Context c) {
 	f->relocate(relocationStep);
 	live_functions.insert(f);
 
-    c.ip() = f->getCurrentLocation();
+    c.ip() = f->getCurrentLocation()->getBase();
 }
 
 void onTimer(int sig, siginfo_t* info, Context c) {
@@ -184,7 +184,7 @@ void onTimer(int sig, siginfo_t* info, Context c) {
 			Function* f = *iter;
             if(c.ip() == f->getCodeBase()) {
                 DEBUG("Forwarding from trap at %p", c.ip());
-                c.ip() = f->getCurrentLocation();
+                c.ip() = f->getCurrentLocation()->getBase();
             }
             f->setTrap();
 		}
