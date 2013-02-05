@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 #include <sys/mman.h>
+#include <randomnumbergenerator.h>
 
 #include "Arch.h"
-#include "randomnumbergenerator.h"
 
 #ifndef PAGESIZE
 #define PAGESIZE 4096
@@ -35,22 +35,22 @@ static void flush_icache(void* begin, size_t size) {
 }
 
 static inline uint8_t getRandomByte() {
-	static RandomNumberGenerator _rng;
-	static uint8_t _randCount = 0;
-	
-	static union {
-		uint8_t _rands[sizeof(int)];
-		int _bigRand;
-	};
-	
-	if(_randCount == sizeof(int)) {
-		_bigRand = _rng.next();
-		_randCount = sizeof(int);
-	}
-	
-	uint8_t r = _rands[_randCount];
-	_randCount++;
-	return r;
+    static RandomNumberGenerator _rng;
+    static uint8_t _randCount = 0;
+    
+    static union {
+        uint8_t _rands[sizeof(int)];
+        int _bigRand;
+    };
+    
+    if(_randCount == sizeof(int)) {
+        _bigRand = _rng.next();
+        _randCount = sizeof(int);
+    }
+    
+    uint8_t r = _rands[_randCount];
+    _randCount++;
+    return r;
 }
 
 #endif

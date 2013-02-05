@@ -53,20 +53,20 @@ public:
     }
     
     /**
-	 * \brief Allocate FunctionLocation objects on the randomized heap
-	 * \arg sz The object size
-	 */
-	void* operator new(size_t sz) {
-		return getDataHeap()->malloc(sz);
-	}
-	
-	/**
-	 * \brief Free allocated memory to the randomized heap
-	 * \arg p The object base pointer
-	 */
-	void operator delete(void* p) {
-		getDataHeap()->free(p);
-	}
+     * \brief Allocate FunctionLocation objects on the randomized heap
+     * \arg sz The object size
+     */
+    void* operator new(size_t sz) {
+        return getDataHeap()->malloc(sz);
+    }
+    
+    /**
+     * \brief Free allocated memory to the randomized heap
+     * \arg p The object base pointer
+     */
+    void operator delete(void* p) {
+        getDataHeap()->free(p);
+    }
     
     void activate() {
         _f->forward(_memory.base());
