@@ -1,7 +1,5 @@
 ## Stabilizer: Statistically Rigorous Performance Evaluation
-Charlie Curtsinger and Emery D. Berger
-<charlie@cs.umass.edu> [homepage](http://www.cs.umass.edu/~charlie)
-<emery@cs.umass.edu> [homepage](http://www.cs.umass.edu/~emery)
+[Charlie Curtsinger](http://www.cs.umass.edu/~charlie) and [Emery D. Berger](http://www.cs.umass.edu/~emery)
 
 Copyright (C) 2013 University of Massachusetts Amherst
 
