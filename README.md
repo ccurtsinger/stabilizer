@@ -1,3 +1,10 @@
+## Stabilizer: Statistically Rigorous Performance Evaluation
+Charlie Curtsinger and Emery D. Berger
+<charlie@cs.umass.edu> [homepage](http://www.cs.umass.edu/~charlie)
+<emery@cs.umass.edu> [homepage](http://www.cs.umass.edu/~emery)
+
+Copyright (C) 2013 University of Massachusetts Amherst
+
 ### About
 Stabilizer is a compiler transformation and runtime library for dynamic memory 
 layout randomization. Programs built with Stabilizer run with randomly-placed 
@@ -100,3 +107,9 @@ The `-norm` flag tests the results for normality using the Shapiro-Wilk test.
 
 The `-all` flag dumps all results to console, suitable for pasting into a
 spreadsheet or CSV file.
+
+### License
+Stabilizer is distributed under the GNU GPLv2 license. Contact 
+<charlie@cs.umass.edu> if you are interested in licensing Stabilizer for
+commercial use.
+
