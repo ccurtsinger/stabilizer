@@ -40,7 +40,7 @@ private:
 public:
     inline void*& ip() {
         _OSX(_AnyX86(return *(void**)&_c->uc_mcontext->__ss.__rip));
-        _LINUX(_AnyX86(return *(void**)&_c->uc_mcontext->gregs[REG_RIP]));
+        _LINUX(_AnyX86(return *(void**)&_c->uc_mcontext.gregs[REG_RIP]));
         _LINUX(_PPC(return *(void**)&_c->uc_mcontext.regs->nip));
         
         ABORT("Instruction pointer not available on current target");
@@ -48,7 +48,7 @@ public:
     
     inline void*& sp() {
         _OSX(_AnyX86(return *(void**)&_c->uc_mcontext->__ss.__rsp));
-        _LINUX(_AnyX86(return *(void**)&_c->uc_mcontext->gregs[REG_RSP]));
+        _LINUX(_AnyX86(return *(void**)&_c->uc_mcontext.gregs[REG_RSP]));
         _LINUX(_PPC(return *(void**)&_c->uc_mcontext.regs->gpr[PT_R1]));
         
         ABORT("Stack pointer not available on current target");
@@ -56,7 +56,7 @@ public:
     
     inline void*& fp() {
         _OSX(_AnyX86(return *(void**)&_c->uc_mcontext->__ss.__rbp));
-        _LINUX(_AnyX86(return *(void**)&_c->uc_mcontext->gregs[REG_RBP]));
+        _LINUX(_AnyX86(return *(void**)&_c->uc_mcontext.gregs[REG_RBP]));
         _LINUX(_PPC(return *(void**)&_c->uc_mcontext.regs->gpr[PT_R1]));
         
         ABORT("Frame pointer not available on current target");
