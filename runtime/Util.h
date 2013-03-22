@@ -20,7 +20,7 @@
 #endif
 
 #if !defined(CODE_ALIGN)
-#define CODE_ALIGN 128
+#define CODE_ALIGN 32
 #endif
 
 static void flush_icache(void* begin, size_t size) {

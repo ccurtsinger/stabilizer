@@ -12,9 +12,21 @@ parser.add_argument('-len', action='store_true')
 parser.add_argument('-r', action='store_true')
 parser.add_argument('-trim', action='store_true')
 parser.add_argument('-all', action='store_true')
+parser.add_argument('-ext', choices=['code', 'code.stack', 'code.heap.stack', 'link'], default=False)
+parser.add_argument('-tune', choices=['base', 'peak'], default=False)
 parser.add_argument('files', nargs='+')
 
 args = parser.parse_args()
+
+if args.ext == False:
+	args.ext = ['code', 'code.stack', 'code.heap.stack', 'link']
+else:
+	args.ext = [args.ext]
+
+if args.tune == False:
+	args.tune = ['base', 'peak']
+else:
+	args.tune = [args.tune]
 
 results = []
 
@@ -122,16 +134,36 @@ if args.trim:
 				del values[values.index(lo)]
 				results[benchmark][tune][ext] = values
 
+#if args.r:
+#	for benchmark in results:
+#		sets = []
+#		for tune in results[benchmark]:
+#			for ext in results[benchmark][tune]:
+#				name = benchmark+'_'+tune+'_'+ext.replace('.', '_')
+#				values = results[benchmark][tune][ext]
+#				print name+' = c('+', '.join(map(str, values))+')'
+#				sets.append('"'+ext.replace('.', '_')+'"='+name)
+#		print benchmark+' <- list(' + ', '.join(sets) + ')'
+
 if args.r:
+	benchmarks = []
+	tunes = []
+	exts = []
+	times = []
+
 	for benchmark in results:
-		sets = []
 		for tune in results[benchmark]:
-			for ext in results[benchmark][tune]:
-				name = benchmark+'_'+tune+'_'+ext.replace('.', '_')
-				values = results[benchmark][tune][ext]
-				print name+' = c('+', '.join(map(str, values))+')'
-				sets.append('"'+ext.replace('.', '_')+'"='+name)
-		print benchmark+' <- list(' + ', '.join(sets) + ')'
+			if tune in args.tune:
+				for ext in results[benchmark][tune]:
+					if ext in args.ext:
+						for time in results[benchmark][tune][ext]:
+							benchmarks.append('"'+benchmark+'"')
+							tunes.append('"'+tune+'"')
+							exts.append('"'+ext+'"')
+							times.append(str(time))
+
+	print 'dat <- data.frame(benchmark=c(' + ', '.join(benchmarks) + '), tune=c(' + ', '.join(tunes) + '), ext=c(' + ', '.join(exts) + '), time=c(' + ', '.join(times) + '))'
+
 		
 elif args.all:
 	benchmarks.sort()
@@ -139,12 +171,14 @@ elif args.all:
 	exts.sort()
 	
 	for tune in tunes:
-		for benchmark in benchmarks:
-			for ext in exts:
-				if tune in results[benchmark] and ext in results[benchmark][tune]:
-					row = [benchmark+'_'+ext+'_'+tune]
-					row += results[benchmark][tune][ext]
-					print ', '.join(map(str, row))
+		if tune in args.tune:
+			for benchmark in benchmarks:
+				for ext in exts:
+					if ext in args.ext:
+						if tune in results[benchmark] and ext in results[benchmark][tune]:
+							row = [benchmark+'_'+ext+'_'+tune]
+							row += results[benchmark][tune][ext]
+							print ', '.join(map(str, row))
 	
 else:
 	benchmarks.sort()
@@ -154,14 +188,16 @@ else:
 	headings = ['Benchmark']
 	columns = []
 	for ext in exts:
-		for tune in tunes:
-			found = False
-			for benchmark in benchmarks:
-				found |= tune in results[benchmark] and ext in results[benchmark][tune]
-				
-			if found:
-				headings.append(ext+'_'+tune)
-				columns.append(ext+'_'+tune)
+		if ext in args.ext:
+			for tune in tunes:
+				if tune in args.tune:	
+					found = False
+					for benchmark in benchmarks:
+						found |= tune in results[benchmark] and ext in results[benchmark][tune]
+						
+					if found:
+						headings.append(ext+'_'+tune)
+						columns.append(ext+'_'+tune)
 	
 	print ', '.join(map(pad, headings))
 	
@@ -170,26 +206,28 @@ else:
 	
 		values = []
 		for ext in exts:
-			for tune in tunes:
-				if (ext+'_'+tune) in columns:
-					if (tune not in results[benchmark] or ext not in results[benchmark][tune]):
-						values.append('')
-					elif args.norm:
-						if len(results[benchmark][tune][ext]) < 3:
-							values.append('')
-						else:
-							(k2, p) = shapiro(results[benchmark][tune][ext])
-							values.append(p > 0.05)
-							#(A2, critical, sig) = anderson(results[benchmark][ext])
-							#values.append(A2 <= critical[1])
-					elif args.range:
-						avg = mean(results[benchmark][tune][ext])
-						up = max(results[benchmark][tune][ext]) - avg
-						down = avg - min(results[benchmark][tune][ext])
-						values.append(max(up / avg, down / avg))
-					elif args.len:
-						values.append(len(results[benchmark][tune][ext]))
-					else:
-						values.append(mean(results[benchmark][tune][ext]))
+			if ext in args.ext:
+				for tune in tunes:
+					if tune in args.tune:
+						if (ext+'_'+tune) in columns:
+							if (tune not in results[benchmark] or ext not in results[benchmark][tune]):
+								values.append('')
+							elif args.norm:
+								if len(results[benchmark][tune][ext]) < 3:
+									values.append('')
+								else:
+									(k2, p) = shapiro(results[benchmark][tune][ext])
+									values.append(p > 0.05)
+									#(A2, critical, sig) = anderson(results[benchmark][ext])
+									#values.append(A2 <= critical[1])
+							elif args.range:
+								avg = mean(results[benchmark][tune][ext])
+								up = max(results[benchmark][tune][ext]) - avg
+								down = avg - min(results[benchmark][tune][ext])
+								values.append(max(up / avg, down / avg))
+							elif args.len:
+								values.append(len(results[benchmark][tune][ext]))
+							else:
+								values.append(mean(results[benchmark][tune][ext]))
 	
 		print ', '.join(map(pad, map(str, values)))
