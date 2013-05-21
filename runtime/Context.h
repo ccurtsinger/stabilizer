@@ -60,13 +60,9 @@ private:
     /// The actual signal context
     ucontext_t* _c;
     
-    Context(void* c) : _c((ucontext_t*)c) {}
-    
 public:
-    /**
-     * Get a reference to the context instruction pointer
-     * \returns A reference to the instruction pointer
-     */
+    Context(void* c) : _c((ucontext_t*)c) {}
+
     inline void*& ip() {
         _OSX(_AnyX86(return *(void**)&_c->uc_mcontext->__ss.__rip));
         _LINUX(_AnyX86(return *(void**)&_c->uc_mcontext.gregs[REG_RIP]));

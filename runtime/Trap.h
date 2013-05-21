@@ -29,7 +29,12 @@ struct PPCTrap {
     
 } __attribute__((packed));
 
-_AnyX86(typedef X86Trap Trap);
-_PPC(typedef PPCTrap Trap);
+#if IS_X86
+	typedef X86Trap Trap;
+#elif IS_X86_64
+	typedef X86Trap Trap;
+#elif IS_PPC
+	typedef PPCTrap Trap;
+#endif
 
 #endif
