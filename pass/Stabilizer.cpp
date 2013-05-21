@@ -22,8 +22,7 @@ using namespace llvm::cl;
 using namespace std;
 
 enum {
-    ALIGN = 64,
-    StackPadTableSize = 256
+    ALIGN = 64
 };
 
 // Randomization configuration options
@@ -36,7 +35,7 @@ struct StabilizerPass : public ModulePass {
 
     Function* registerFunction;
     Function* registerConstructor;
-    Function* registerStackTable;
+    Function* registerStackPad;
     
     StabilizerPass() : ModulePass(ID) {}
 
@@ -148,37 +147,30 @@ struct StabilizerPass : public ModulePass {
         
         declareRuntimeFunctions(m);
 
-        map<Function*, GlobalVariable*> stackTables;
+        map<Function*, GlobalVariable*> stackPads;
         
         // Declare the stack pad table type
-        ArrayType* stackPadTableType = ArrayType::get(Type::getInt8Ty(m.getContext()), StackPadTableSize);
+		Type* stackPadType = Type::getInt8Ty(m.getContext());
         
         // Enable stack randomization
         if(stabilize_stack) {
-            vector<Constant*> values;
-            //values.push_back(getInt(m, 8, StackPadTableSize, false));
-            for(size_t i=0; i<StackPadTableSize; i++) {
-            //for(size_t i=1; i<StackPadTableSize; i++) {
-                values.push_back(getInt(m, 8, 0, false));
-            }
-            
             // Transform each function
             for(set<Function*>::iterator f_iter = local_functions.begin(); f_iter != local_functions.end(); f_iter++) {
                 Function* f = *f_iter;
                 
                 // Create the stack pad table
-                GlobalVariable* table = new GlobalVariable(
+                GlobalVariable* pad = new GlobalVariable(
                     m, 
-                    stackPadTableType, 
+                    stackPadType, 
                     false, 
                     GlobalValue::InternalLinkage,
-                    ConstantArray::get(stackPadTableType, values),
-                    f->getName()+".stack_table"
+                    getInt(m, 8, 0, false),
+                    f->getName()+".stack_pad"
                 );
                 
-                stackTables[f] = table;
+                stackPads[f] = pad;
                 
-                randomizeStack(m, *f, table);
+                randomizeStack(m, *f, pad);
             }
         }
 
@@ -198,9 +190,9 @@ struct StabilizerPass : public ModulePass {
                 Function* f = *f_iter;
                 vector<Value*> args = randomizeCode(m, *f);
                 
-                Value* table = stackTables[f];
+                Value* table = stackPads[f];
                 if(table == NULL) {
-                    table = Constant::getNullValue(PointerType::get(stackPadTableType, 0));
+                    table = Constant::getNullValue(PointerType::get(stackPadType, 0));
                 }
                 
                 args.push_back(table);
@@ -218,10 +210,10 @@ struct StabilizerPass : public ModulePass {
         
         // If we're not randomizing code, declare the stack tables by themselves
         if(stabilize_stack && !stabilize_code) {
-            for(map<Function*, GlobalVariable*>::iterator iter = stackTables.begin(); iter != stackTables.end(); iter++) {
+            for(map<Function*, GlobalVariable*>::iterator iter = stackPads.begin(); iter != stackPads.end(); iter++) {
                 vector<Value*> args;
                 args.push_back(iter->second);
-                CallInst::Create(registerStackTable, args, "", ctor_bb);
+                CallInst::Create(registerStackPad, args, "", ctor_bb);
             }
         }
         
@@ -345,7 +337,7 @@ struct StabilizerPass : public ModulePass {
      * \arg m The module being transformed
      * \arg f The function being transformed
      */
-    void randomizeStack(Module& m, llvm::Function& f, GlobalVariable* stackPadTable) {
+    void randomizeStack(Module& m, llvm::Function& f, GlobalVariable* stackPad) {
         Function* stacksave = Intrinsic::getDeclaration(&m, Intrinsic::stacksave);
         Function* stackrestore = Intrinsic::getDeclaration(&m, Intrinsic::stackrestore);
         
@@ -372,35 +364,9 @@ struct StabilizerPass : public ModulePass {
         for(vector<CallInst*>::iterator c_iter = calls.begin(); c_iter != calls.end(); c_iter++) {
             CallInst* c = *c_iter;
             Instruction* next = c->getNextNode();
-            
-            // Get a pointer to the count value (first element in the array)
-            vector<Value*> count_indices;
-            count_indices.push_back(getInt(m, 32, 0, false));
-            count_indices.push_back(getInt(m, 32, 0, false));
-            Value* count_ptr = GetElementPtrInst::CreateInBounds(stackPadTable, count_indices, "count_ptr", c);
 
-            // Load the count value
-            Value* count = new LoadInst(count_ptr, "count", c);
-
-            // Get a pointer to the current pad value
-            vector<Value*> pad_indices;
-            pad_indices.push_back(getInt(m, 32, 0, false));
-            pad_indices.push_back(count);
-            Value* pad_ptr = GetElementPtrInst::CreateInBounds(stackPadTable, pad_indices, "pad_ptr", c);
-
-            // Load the stack pad
-            Value* pad = new LoadInst(pad_ptr, "pad", c);
-
-            // Increment the count
-            BinaryOperator* new_count = BinaryOperator::CreateNUWAdd(
-                count,
-                getInt(m, 8, 1, false),
-                "new_count",
-                c
-            );
-
-            new StoreInst(new_count, count_ptr, c);
-
+			// Load the stack pad size and widen it to an intptr
+			Value* pad = new LoadInst(stackPad, "pad", c);
             Value* wide_pad = ZExtInst::CreateZExtOrBitCast(pad, getIntptrType(m), "", c);
 
             // Multiply the pad by the required stack alignment
@@ -941,7 +907,7 @@ struct StabilizerPass : public ModulePass {
         register_function_params.push_back(Type::getInt8PtrTy(m.getContext()));
         register_function_params.push_back(Type::getInt32Ty(m.getContext()));
         register_function_params.push_back(Type::getInt1Ty(m.getContext()));
-        register_function_params.push_back(PointerType::get(ArrayType::get(Type::getInt8Ty(m.getContext()), StackPadTableSize), 0));
+		register_function_params.push_back(PointerType::get(Type::getInt8Ty(m.getContext()), 0));
         
         registerFunction = Function::Create(
              FunctionType::get(Type::getVoidTy(m.getContext()), register_function_params, false),
@@ -964,16 +930,16 @@ struct StabilizerPass : public ModulePass {
         
         // Declare the register_stack_table runtime function
         vector<Type*> params;
-        params.push_back(PointerType::get(ArrayType::get(Type::getInt8Ty(m.getContext()), StackPadTableSize), 0));
+		params.push_back(PointerType::get(Type::getInt8Ty(m.getContext()), 0));
         
-        registerStackTable = Function::Create(
+        registerStackPad = Function::Create(
             FunctionType::get(Type::getVoidTy(m.getContext()), params, false),
             Function::ExternalLinkage,
-            "stabilizer_register_stack_table",
+            "stabilizer_register_stack_pad",
             &m
         );
         
-        registerStackTable->addFnAttr(Attribute::NonLazyBind);
+        registerStackPad->addFnAttr(Attribute::NonLazyBind);
     }
 };
 

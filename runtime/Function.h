@@ -49,7 +49,7 @@ private:
     
     bool _tableAdjacent;    //< If true, the relocation table should be placed next to the function
     
-    uint8_t* _stackPadTable;    //< The base of the 256-entry stack pad table for this function
+    uint8_t* _stackPad;		//< The address of the stack pad value for this function
     
     bool _trapped;          //< If true, the function will trap when called
     
@@ -95,11 +95,11 @@ public:
     * \arg tableSize The size of the function's relocation table
     * \arg tableAdjacent If true, the relocation table should be placed immediately after the function
     */
-    inline Function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool tableAdjacent, uint8_t* stackPadTable) :
+    inline Function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool tableAdjacent, uint8_t* stackPad) :
         _code(codeBase, codeLimit), _table(tableBase, tableSize), _savedHeader(*(FunctionHeader*)_code.base()) {
         
         this->_tableAdjacent = tableAdjacent;
-        this->_stackPadTable = stackPadTable;
+        this->_stackPad = stackPad;
         this->_lastRelocation = 0;
         this->_current = NULL;
 
