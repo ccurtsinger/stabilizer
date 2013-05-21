@@ -1,3 +1,7 @@
+/**
+ * Macros for target-specific code.
+ */
+
 #if !defined(RUNTIME_ARCH_H)
 #define RUNTIME_ARCH_H
 

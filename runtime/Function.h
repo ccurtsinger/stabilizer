@@ -51,10 +51,6 @@ private:
     
     uint8_t* _stackPadTable;    //< The base of the 256-entry stack pad table for this function
     
-    bool _trapped;          //< If true, the function will trap when called
-    
-    size_t _lastRelocation; //< The step number for this function's last relocation
-    
     FunctionLocation* _current;
     
     /**
@@ -64,8 +60,6 @@ private:
     inline void forward(void* target) {
         _header->jumpTo(target);
         flush_icache(_header, sizeof(FunctionHeader));
-
-        _trapped = false;
     }
     
     void copyTo(void* target);
@@ -100,7 +94,6 @@ public:
         
         this->_tableAdjacent = tableAdjacent;
         this->_stackPadTable = stackPadTable;
-        this->_lastRelocation = 0;
         this->_current = NULL;
 
         // Make the function header writable
@@ -119,22 +112,13 @@ public:
      */
     ~Function();
     
-    /**
-    * \brief Relocate this function
-    * \arg relocation The global relocation step number.  If this function has already
-    *       been relocated in this step, it will not be relocated again.
-    * \returns True if the function was moved on this call
-    */
-    bool relocate(size_t);
+    FunctionLocation* relocate();
     
     /**
      * \brief Place a trap instruction at the beginning of this function
      */
     inline void setTrap() {
-        if(!_trapped) {
-            _header->trap();
-            _trapped = true;
-        }
+        _header->trap();
     }
     
     inline void* getCodeBase() {

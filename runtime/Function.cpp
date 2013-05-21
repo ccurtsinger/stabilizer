@@ -1,12 +1,25 @@
 #include "Function.h"
 #include "FunctionLocation.h"
 
+/**
+ * Free the current function location and stack pad table
+ */
 Function::~Function() {
     if(_current != NULL) {
         _current->release();
     }
+    
+    if(_stackPadTable != NULL) {
+        getDataHeap()->free(_stackPadTable);
+    }
 }
 
+/**
+ * Copy the code and relocation table for this function.  Use the pre-assembled
+ * code/table chunk if the function has already been relocated.
+ * 
+ * \arg target The destination of the copy.
+ */
 void Function::copyTo(void* target) {
     if(_current == NULL) {
         // Copy the code from the original function
@@ -36,29 +49,22 @@ void Function::copyTo(void* target) {
     }
 }
 
-bool Function::relocate(size_t relocation) {
-    if(relocation > _lastRelocation) {
-        FunctionLocation* oldLocation = _current;
-        _current = new FunctionLocation(this);
-        _current->activate();
+/**
+ * Create a new FunctionLocation for this Function.
+ * \arg relocation The ID for the current relocation phase.
+ * \returns Whether or not a new location was created
+ */
+FunctionLocation* Function::relocate() {
+    FunctionLocation* oldLocation = _current;
+    _current = new FunctionLocation(this);
+    _current->activate();
 
-        if(oldLocation != NULL) {
-            oldLocation->release();
+    // Fill the stack pad table with random bytes
+    if(_stackPadTable != NULL) {
+        for(size_t i=0; i<256; i++) {
+            _stackPadTable[i] = getRandomByte();
         }
-
-        // Update the last-relocated counter
-        _lastRelocation = relocation;
-
-        // Fill the stack pad table with random bytes
-        if(_stackPadTable != NULL) {
-            for(size_t i=0; i<256; i++) {
-                _stackPadTable[i] = getRandomByte();
-            }
-        }
-
-        return true;
-
-    } else {
-        return false;
     }
+    
+    return oldLocation;
 }

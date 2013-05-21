@@ -33,7 +33,6 @@ vector<ctor_t> constructors;
 
 bool rerandomizing = false;
 size_t interval = 500;
-size_t relocationStep = 1;
 
 void** topFrame = NULL;
 
@@ -149,6 +148,7 @@ void onTrap(int sig, siginfo_t* info, Context c) {
         // Mark the top return address on the stack as used
         FunctionLocation::mark(*(void**)c.sp());
         
+        // Collect unused function locations
         FunctionLocation::sweep();
         
         rerandomizing = false;
@@ -156,16 +156,18 @@ void onTrap(int sig, siginfo_t* info, Context c) {
     }
 
     // Relocate the function
-    f->relocate(relocationStep);
+    FunctionLocation* oldLocation = f->relocate();
     live_functions.insert(f);
+    
+    if(oldLocation != NULL) {
+        oldLocation->release();
+    }
 
     c.ip() = f->getCurrentLocation()->getBase();
 }
 
 void onTimer(int sig, siginfo_t* info, Context c) {
     DEBUG("Re-randomization timer fired at %p", c.ip());
-    
-    relocationStep++;
     
     if(functions.size() == 0) {
         DEBUG("Re-randomizing stack pad tables");
@@ -188,6 +190,8 @@ void onTimer(int sig, siginfo_t* info, Context c) {
             }
             f->setTrap();
         }
+        
+        live_functions.clear();
     }
     
     rerandomizing = true;
