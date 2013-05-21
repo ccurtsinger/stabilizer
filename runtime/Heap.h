@@ -8,12 +8,12 @@
 #include "MMapSource.h"
 
 enum {
-    DataShuffle = 1,
+    DataShuffle = 256,
     DataProt = PROT_READ | PROT_WRITE,
     DataFlags = MAP_PRIVATE | MAP_ANONYMOUS,
     DataSize = 0x2000000,
     
-    CodeShuffle = 1,
+    CodeShuffle = 256,
     CodeProt = PROT_READ | PROT_WRITE | PROT_EXEC,
     CodeFlags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT,
     CodeSize = 0x2000000
