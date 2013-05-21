@@ -34,9 +34,9 @@ struct X86Jump64 {
          */
         sub_8_rsp = 0x08EC8348;     // move the stack pointer down 8 bytes
         mov_imm_0rsp = 0x002444C7;  // move an immediate to 0(%rsp)
-        target_low = (uint32_t)(intptr_t)target;
+        target_low = (uint32_t)(int64_t)target;
         mov_imm_4rsp = 0x042444C7;  // move an immediate to 4(%rsp)
-        target_high = (uint32_t)((intptr_t)target >> 32);
+        target_high = (uint32_t)((int64_t)target >> 32);
         retq = 0xC3;
     }
 } __attribute__((packed));
@@ -72,7 +72,7 @@ struct PPCJump {
         uintptr_t pos_offset = t - (uintptr_t)this;
         intptr_t neg_offset = (intptr_t)this - (intptr_t)t;
 
-        if(t < 1<<25) {
+        /*if(t < 1<<25) {
             DEBUG("absolute jump");
             ba = 0x48000002;
             ba |= t & 0x03FFFFFCu;
@@ -84,18 +84,22 @@ struct PPCJump {
             DEBUG("  use negative offset\n");
             ba = 0x48000000;
             ba |= neg_offset & 0x03FFFFFC;
-        } else {
+        } else { */
             DEBUG("slow jump");
             lis_to_r0=0x3c000000 | ((t>>16)&0xFFFFu);
             ori_r0=0x60000000 | (t&0xFFFFu);
             mtctr=0x7c0903a6;
             bctr=0x4e800420;
-        }
+        // }
     }
 } __attribute__((packed));
 
-_X86(typedef X86Jump32 Jump);
-_X86_64(typedef X86_64Jump Jump);
-_PPC(typedef PPCJump Jump);
+#if IS_X86
+typedef X86Jump32 Jump;
+#elif IS_X86_64
+typedef X86_64Jump Jump;
+#elif IS_PPC
+typedef PPCJump Jump;
+#endif
 
 #endif
