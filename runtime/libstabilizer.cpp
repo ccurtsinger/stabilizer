@@ -17,18 +17,18 @@ extern "C" int stabilizer_main(int argc, char **argv);
 
 int main(int argc, char** argv);
 
-void onTrap(int sig, siginfo_t* info, Context c);
-void onTimer(int sig, siginfo_t* info, Context c);
-void onFault(int sig, siginfo_t* info, Context c);
+void onTrap(int sig, siginfo_t* info, void*);
+void onTimer(int sig, siginfo_t* info, void*);
+void onFault(int sig, siginfo_t* info, void*);
 
 void setTimer(int msec);
-void setHandler(int sig, void(*fn)(int, siginfo_t*, Context));
+void setHandler(int sig, void(*fn)(int, siginfo_t*, void*));
 
 typedef void(*ctor_t)();
 
 set<Function*> functions;
 set<Function*> live_functions;
-set<uint8_t*> stack_tables;
+set<uint8_t*> stack_pads;
 vector<ctor_t> constructors;
 
 bool rerandomizing = false;
@@ -84,8 +84,8 @@ int main(int argc, char **argv) {
 }
 
 extern "C" {
-    void stabilizer_register_function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool adjacent, uint8_t* stackTable) {
-        Function* f = new Function(codeBase, codeLimit, tableBase, tableSize, adjacent, stackTable);
+    void stabilizer_register_function(void* codeBase, void* codeLimit, void* tableBase, size_t tableSize, bool adjacent, uint8_t* stackPad) {
+        Function* f = new Function(codeBase, codeLimit, tableBase, tableSize, adjacent, stackPad);
         functions.insert(f);
     }
 
@@ -93,8 +93,8 @@ extern "C" {
         constructors.push_back(ctor);
     }
     
-    void stabilizer_register_stack_table(uint8_t* table) {
-        stack_tables.insert(table);
+    void stabilizer_register_stack_pad(uint8_t* pad) {
+        stack_pads.insert(pad);
     }
 
     void* stabilizer_malloc(size_t sz) {
@@ -122,7 +122,9 @@ extern "C" {
     }
 }
 
-void onTrap(int sig, siginfo_t* info, Context c) {
+void onTrap(int sig, siginfo_t* info, void* p) {
+    Context c(p);
+
     // Back up over the trap instruction
     c.ip() = (void*)((uintptr_t)c.ip() - Trap::TrapAdjust);
 
@@ -166,16 +168,16 @@ void onTrap(int sig, siginfo_t* info, Context c) {
     c.ip() = f->getCurrentLocation()->getBase();
 }
 
-void onTimer(int sig, siginfo_t* info, Context c) {
+void onTimer(int sig, siginfo_t* info, void* p) {
+    Context c(p);
+
     DEBUG("Re-randomization timer fired at %p", c.ip());
     
     if(functions.size() == 0) {
-        DEBUG("Re-randomizing stack pad tables");
-        for(set<uint8_t*>::iterator iter = stack_tables.begin(); iter != stack_tables.end(); iter++) {
-            uint8_t* table = *iter;
-            for(size_t i=0; i<256; i++) {
-                table[i] = getRandomByte();
-            }
+        DEBUG("Re-randomizing stack pads");
+        for(set<uint8_t*>::iterator iter = stack_pads.begin(); iter != stack_pads.end(); iter++) {
+            uint8_t* pad = *iter;
+			**iter = getRandomByte();
         }
         
         setTimer(interval);
@@ -197,7 +199,8 @@ void onTimer(int sig, siginfo_t* info, Context c) {
     rerandomizing = true;
 }
 
-void onFault(int sig, siginfo_t* info, Context c) {
+void onFault(int sig, siginfo_t* info, void* p) {
+    Context c(p);
     ABORT("Fault at %p, accessing address %p", c.ip(), info->si_addr);
 }
 
@@ -212,7 +215,7 @@ void setTimer(int msec) {
     setitimer(ITIMER_REAL, &timer, 0);
 }
 
-void setHandler(int sig, void(*fn)(int, siginfo_t*, Context)) {
+void setHandler(int sig, void(*fn)(int, siginfo_t*, void*)) {
     struct sigaction sa;
     sa.sa_sigaction = (void(*)(int, siginfo_t*, void*))fn;
     sa.sa_flags = SA_SIGINFO;

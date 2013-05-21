@@ -10,7 +10,7 @@ Function::~Function() {
     }
     
     if(_stackPadTable != NULL) {
-        getDataHeap()->free(_stackPadTable);
+        getDataHeap()->free(_stackPad);
     }
 }
 
@@ -29,12 +29,12 @@ void Function::copyTo(void* target) {
         *(FunctionHeader*)target = _savedHeader;
 
         // If there is a stack pad table, move it to a random location
-        if(_stackPadTable != NULL) {
+        if(_stackPad != NULL) {
             uintptr_t* table = (uintptr_t*)_table.base();
             for(size_t i=0; i<_table.size(); i+=sizeof(uintptr_t)) {
-                if(table[i] == (uintptr_t)_stackPadTable) {
-                    _stackPadTable = (uint8_t*)getDataHeap()->malloc(256);
-                    table[i] = (uintptr_t)_stackPadTable;
+                if(table[i] == (uintptr_t)_stackPad) {
+                    _stackPad = (uint8_t*)getDataHeap()->malloc(1);
+                    table[i] = (uintptr_t)_stackPad;
                 }
             }
         }
@@ -60,10 +60,9 @@ FunctionLocation* Function::relocate() {
     _current->activate();
 
     // Fill the stack pad table with random bytes
-    if(_stackPadTable != NULL) {
-        for(size_t i=0; i<256; i++) {
-            _stackPadTable[i] = getRandomByte();
-        }
+    if(_stackPad != NULL) {
+        // Update random stack pad
+        *_stackPad = getRandomByte();
     }
     
     return oldLocation;
