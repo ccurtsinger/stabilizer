@@ -9,7 +9,7 @@ Function::~Function() {
         _current->release();
     }
     
-    if(_stackPadTable != NULL) {
+    if(_stackPad != NULL) {
         getDataHeap()->free(_stackPad);
     }
 }
