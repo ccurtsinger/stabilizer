@@ -13,6 +13,7 @@
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Transforms/Instrumentation.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 
 #include <string>
 #include <vector>
@@ -33,7 +34,7 @@ public:
     uintptr_t sz_rem = sz % PageSize;
     if(sz_rem != 0) sz += PageSize - sz_rem;
     void* p = mmap(NULL, sz, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_SHARED, -1, 0);
-    fprintf(stderr, "%s (code) at %p\n", name.str().c_str(), p);
+    //fprintf(stderr, "%s (code) at %p\n", name.str().c_str(), p);
     return (uint8_t*)p;
   }
   
@@ -41,7 +42,7 @@ public:
     uintptr_t sz_rem = sz % PageSize;
     if(sz_rem != 0) sz += PageSize - sz_rem;
     void* p = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
-    fprintf(stderr, "%s (data) at %p\n", name.str().c_str(), p);
+    //fprintf(stderr, "%s (data) at %p\n", name.str().c_str(), p);
     return (uint8_t*)p;
   }
   
@@ -61,49 +62,101 @@ Module* readModule(const string& filename, LLVMContext& context) {
   return m;
 }
 
+vector<Module*> splitModule(Module* M) {
+  vector<Module*> modules;
+  vector<GlobalValue*> to_remove;
+  
+  // Mark all globals as external
+  for(GlobalVariable& other : M->getGlobalList()) {
+    if(other.getName() != "llvm.global_ctors" && other.getName() != "llvm.global_dtors") {
+      other.setLinkage(GlobalValue::ExternalLinkage);
+    }
+  }
+  
+  // Extract each function into a separate module
+  for(Function& F : M->getFunctionList()) {
+    if(!F.isDeclaration()) {
+      outs() << "Extracting function " << F.getName() << "\n";
+      Module* newM = CloneModule(M);
+    
+      // Delete other functions in the module
+      for(Function& other : newM->getFunctionList()) {
+        if(!other.isDeclaration() && other.getName() != F.getName()) {
+          other.deleteBody();
+        }
+      }
+    
+      // Delete globals in the module
+      for(GlobalVariable& other : newM->getGlobalList()) {
+        if(other.getName() != "llvm.global_ctors" && other.getName() != "llvm.global_dtors") {
+          other.setInitializer(NULL);
+        } else {
+          to_remove.push_back(&other);
+        }
+      }
+    
+      // Add this to the list of modules
+      modules.push_back(newM);
+    
+      // Remove this function's body from the main module
+      F.deleteBody();
+    }
+  }
+  
+  for(GlobalValue* r : to_remove) {
+    r->eraseFromParent();
+  }
+  
+  modules.push_back(M);
+  
+  return modules;
+}
+
 int main(int argc, char** argv, char** envp) {
   InitializeNativeTarget();
-  InitializeAllTargetMCs();
+  //InitializeAllTargetMCs();
   InitializeNativeTargetAsmPrinter();
-   
-  LLVMLinkInMCJIT();
-  LLVMLinkInJIT();
+  //LLVMLinkInMCJIT();
 
+  // Use a single LLVM context
   LLVMContext Context;
-  SMDiagnostic Err;
   
-  Module* M = ParseIRFile(argv[1], Err, Context);
+  // Read in the module bitcode file
+  Module* M = readModule(argv[1], Context);
   
-  if(!M) {
-    Err.print(argv[1], outs());
-    return 1;
-  }
+  vector<Module*> modules = splitModule(M);
   
-  // Find the entry point
-  Function* F = M->getFunction("main");
-  
-  if(!F) {
-    outs() << "Module doesn't define a main function!\n";
-    return 1;
-  }
-  
+  // Use a custom allocator for the JIT
   CustomAllocator* memory_manager = new CustomAllocator();
   
-  // Now we create the JIT.
-  TargetOptions Options;
-  ExecutionEngine* EE = EngineBuilder(M).setOptLevel(CodeGenOpt::Aggressive)
-                                        .setUseMCJIT(true)
-                                        .setMCJITMemoryManager(memory_manager)
-                                        .setTargetOptions(Options)
-                                        .create();
+  Module* m1 = modules.back();
+  modules.pop_back();
   
-  // Actually generate code (or stubs)
+  // Create the JIT
+  ExecutionEngine* EE = EngineBuilder(m1).setOptLevel(CodeGenOpt::Default)
+                                         .setUseMCJIT(true)
+                                         .setMCJITMemoryManager(memory_manager)
+                                         .create();
+  
+  // Add all other modules
+  for(Module* m : modules) {
+    EE->addModule(m);
+  }
+  
+  // Generate code
   EE->finalizeObject();
 
   // Call the `main' function with no arguments:
   vector<string> args;
   for(int i=1; i<argc; i++) {
     args.push_back(string(argv[i]));
+  }
+  
+  // Find the entry point
+  Function* F = EE->FindFunctionNamed("main");
+  if(!F) {
+    outs() << "Module doesn't define a main function!\n";
+    return 1;
   }
   
   size_t start_time = mach_absolute_time();
