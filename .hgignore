@@ -1,9 +1,0 @@
-LLVMStabilizer.so
-LLVMStabilizer.dylib
-libstabilizer.so
-libstabilizer.dylib
-pass/obj
-runtime/obj
-
-tests/HelloWorld/obj
-tests/libquantum/obj
