@@ -112,7 +112,7 @@ $(RECURSIVE_TARGETS)::
 $(ROOT)/Heap-Layers:
 	@ echo $(INDENT)[git] Checking out Heap-Layers
 	@rm -rf $(ROOT)/Heap-Layers
-	@git clone https://github.com/ccurtsinger/Heap-Layers.git $(ROOT)/Heap-Layers
+	@git clone https://github.com/emeryberger/Heap-Layers.git $(ROOT)/Heap-Layers
 
 $(ROOT)/DieHard/src/include $(ROOT)/DieHard/src/include/math $(ROOT)/DieHard/src/include/rng $(ROOT)/DieHard/src/include/static $(ROOT)/DieHard/src/include/util:
 	@echo $(INDENT)[git] Checking out DieHard
