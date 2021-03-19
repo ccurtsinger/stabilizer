@@ -1,22 +1,50 @@
-## Stabilizer: Statistically Rigorous Performance Evaluation
-[Charlie Curtsinger](http://www.cs.umass.edu/~charlie) and [Emery D. Berger](http://www.cs.umass.edu/~emery)
+## Stabilizer: Statistically Sound Performance Evaluation
+[Charlie Curtsinger](https://curtsinger.cs.grinnell.edu/) and [Emery D. Berger](https://www.emeryberger.com)
+University of Massachusetts Amherst
 
-Copyright (C) 2013 University of Massachusetts Amherst
+### Abstract
 
-### About
-Stabilizer is a compiler transformation and runtime library for dynamic memory 
-layout randomization. Programs built with Stabilizer run with randomly-placed 
-functions, stack frames, and heap objects. Functions and stack frames are moved 
-repeatedly during execution. A random memory layout eliminates the effect of 
-layout on performance, and repeated randomization leads to normally-distributed 
-execution times. This makes it straightforward to use standard statistical tests 
-for performance evaluation.
+Researchers and software developers require effective performance
+evaluation. Researchers must evaluate optimizations or measure
+overhead. Software developers use automatic performance regression tests to discover when changes improve or degrade performance.
+The standard methodology is to compare execution times before and
+after applying changes.
 
-A more detailed description of Stabilizer is available in the 
-[Paper](http://www.cs.umass.edu/~charlie/stabilizer.pdf), which will appear at
-ASPLOS 2013 in March.
+Unfortunately, modern architectural features make this approach
+unsound. Statistically sound evaluation requires multiple samples
+to test whether one can or cannot (with high confidence) reject the
+null hypothesis that results are the same before and after. However,
+caches and branch predictors make performance dependent on
+machine-specific parameters and the exact layout of code, stack
+frames, and heap objects. A single binary constitutes just one sample
+from the space of program layouts, regardless of the number of runs.
+Since compiler optimizations and code changes also alter layout, it
+is currently impossible to distinguish the impact of an optimization
+from that of its layout effects.
 
-### Requirements
+**Stabilizer** is a system that enables the use of
+the powerful statistical techniques required for sound performance
+evaluation on modern architectures. Stabilizer forces executions
+to sample the space of memory configurations by repeatedly rerandomizing layouts of code, stack, and heap objects at runtime.
+STABILIZER thus makes it possible to control for layout effects.
+Re-randomization also ensures that layout effects follow a Gaussian
+distribution, enabling the use of statistical tests like ANOVA. We
+demonstrate Stabilizer's’s efficiency (< 7% median overhead) and
+its effectiveness by evaluating the impact of LLVM’s optimizations
+on the SPEC CPU2006 benchmark suite. We find that, while `-O2`
+has a significant impact relative to `-O1`, the performance impact of
+`-O3` over `-O2` optimizations is indistinguishable from random noise.
+
+A full description of Stabilizer is available in the 
+[technical paper](http://www.cs.umass.edu/~emery/pubs/stabilizer-asplos13.pdf), which appeared at
+ASPLOS 2013.
+
+See also this [nice blog post](https://fgiesen.wordpress.com/2017/09/02/papers-i-like-part-5/) about this research.
+
+### Building Requirements
+
+_NOTE: This project is no longer being actively maintained, and only works on quite old versions of LLVM._
+
 Stabilizer requires [LLVM 3.1](http://llvm.org/releases/download.html#3.1). 
 Stabilizer runs on OSX and Linux, and supports x86, x86_64, and PowerPC.
 
@@ -105,9 +133,3 @@ The `-norm` flag tests the results for normality using the Shapiro-Wilk test.
 
 The `-all` flag dumps all results to console, suitable for pasting into a
 spreadsheet or CSV file.
-
-### License
-Stabilizer is distributed under the GNU GPLv2 license. Contact 
-<charlie@cs.umass.edu> if you are interested in licensing Stabilizer for
-commercial use.
-
