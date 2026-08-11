@@ -1,3 +1,4 @@
+
 ## Stabilizer: Statistically Sound Performance Evaluation
 [Charlie Curtsinger](https://curtsinger.cs.grinnell.edu/) and [Emery D. Berger](https://www.emeryberger.com)
 University of Massachusetts Amherst
