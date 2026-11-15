@@ -5,6 +5,7 @@ import sys
 import random
 import argparse
 from distutils import util
+import subprocess
 
 parser = argparse.ArgumentParser(description="Stabilizer Compiler Driver")
 
@@ -38,7 +39,7 @@ def getPlatform():
 	elif util.get_platform().startswith('linux'):
 		return 'linux'
 	else:
-		print 'Unsupported platform'
+		print('Unsupported platform')
 		exit(2)
 
 def arg(flag, values):
@@ -117,14 +118,14 @@ def compile(input):
 	cmd += ' '+input
 	
 	if args.v:
-		print cmd
-	os.system(cmd)
+		print(cmd)
+	subprocess.run(cmd, shell=True)
 	
 	if needsAssembly:
 		cmd = 'llvm-as -o ' + args.o + ' ' + args.o + '.s'
 		if args.v:
-			print cmd
-		os.system(cmd)
+			print(cmd)
+		subprocess.run(cmd, shell=True)
 	
 	return args.o
 
@@ -137,8 +138,8 @@ def link(inputs):
 	cmd += ' '.join(inputs)
 
 	if args.v:
-		print cmd
-	os.system(cmd)
+		print(cmd)
+	subprocess.run(cmd, shell=True)
 	return args.o + '.bc'
 
 def transform(input):
@@ -153,8 +154,8 @@ def transform(input):
 	cmd += arg('', opts)
 	
 	if args.v:
-		print cmd
-	os.system(cmd)
+		print(cmd)
+	subprocess.run(cmd, shell=True)
 	return args.o + '.opt.bc'
 
 def codegen(input):
@@ -163,8 +164,8 @@ def codegen(input):
 	cmd += ' ' + input
 	
 	if args.v:
-		print cmd
-	os.system(cmd)
+		print(cmd)
+	subprocess.run(cmd, shell=True)
 	
 	if args.lang == 'fortran':
 		cmd = 'gfortran'
@@ -179,8 +180,8 @@ def codegen(input):
 	cmd += arg('l', args.l)
 	
 	if args.v:
-		print cmd
-	os.system(cmd)
+		print(cmd)
+	subprocess.run(cmd, shell=True)
 	
 	return args.o
 

@@ -2,6 +2,7 @@
 
 import os
 import sys
+import subprocess
 
 benchmarks = ['astar', 'bwaves', 'bzip2', 'cactusADM', 'calculix', 'gcc', 'gobmk', 'gromacs', 'h264ref', 'hmmer', 'lbm', 'leslie3d', 'libquantum', 'mcf', 'milc', 'namd', 'perlbench', 'sjeng', 'sphinx3', 'wrf', 'zeusmp']
 
@@ -53,7 +54,7 @@ def runspec(bench, size, tune, ext, n, rebuild=False):
 		cmd += ' --rebuild'
 	cmd += ' '+bench
 
-	os.system(cmd)
+	subprocess.run(cmd, shell=True)
 
 for bmk in to_run:
 	for config in run_configs:
